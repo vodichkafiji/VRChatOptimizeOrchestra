@@ -12,6 +12,20 @@ namespace TurboOptimizer
         public static Component Descriptor(GameObject go) =>
             go.GetComponents<Component>().FirstOrDefault(c => c != null && c.GetType().Name == "VRCAvatarDescriptor");
 
+        static readonly string[] Reserved = { "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+                                              "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9" };
+
+        // Имя, которое Windows примет как имя папки/файла: без запрещённых символов, без пробелов и точек на краях
+        // (Windows молча срезает их, и Unity потом не находит путь), не зарезервированное.
+        public static string SafeFileName(string s)
+        {
+            var bad = System.IO.Path.GetInvalidFileNameChars();
+            var r = string.Concat((s ?? "").Select(c => bad.Contains(c) || c < 32 ? '_' : c)).Trim().TrimEnd('.', ' ');
+            if (r.Length == 0) r = "_";
+            if (Reserved.Contains(r.Split('.')[0].ToUpperInvariant())) r = "_" + r;
+            return r;
+        }
+
         public static bool IsEditorOnly(Transform t)
         {
             for (var x = t; x != null; x = x.parent) if (x.CompareTag("EditorOnly")) return true;

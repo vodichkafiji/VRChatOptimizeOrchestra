@@ -130,6 +130,6 @@ namespace TurboOptimizer
             File.WriteAllLines(file, d.Select(kv => kv.Key + "\t" + kv.Value));
         }
 
-        static string Safe(string s) => string.Concat(s.Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));
+        static string Safe(string s) => AvatarUtil.SafeFileName(s);
     }
 }

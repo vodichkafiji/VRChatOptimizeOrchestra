@@ -456,6 +456,6 @@ namespace TurboOptimizer
             Directory.CreateDirectory(Path.GetDirectoryName(ListFile(avatar)));
             File.WriteAllLines(ListFile(avatar), list);
         }
-        static string Safe(string s) => string.Concat(s.Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));
+        static string Safe(string s) => AvatarUtil.SafeFileName(s);
     }
 }
