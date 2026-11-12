@@ -1,5 +1,7 @@
 # fiji's Optimize Orchestra ✩✩✩
 
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/vodichkafiji)
+
 **English** · [Русский](#русский)
 
 A Unity editor tool that brings a VRChat avatar to **Medium** or **Good** performance rank — without you having to understand how AAO, d4rkAvatarOptimizer, Meshia and VRCFury work. It's an orchestra conductor for optimizers: it checks the avatar, decides which tool to apply and how hard, and shows the real rank you'll get in game.
