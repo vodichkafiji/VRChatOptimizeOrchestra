@@ -79,7 +79,7 @@ Then open **Tools → fiji's Optimize Orchestra**.
 | Meshes, materials, unused bones/blendshapes | Adds AAO *Trace And Optimize* and d4rkAvatarOptimizer components; they run only on upload | Remove the components / *Revert everything* |
 | Polygons | Meshia component with a triangle budget for the target (30% kept for the face) | Same |
 | Textures | Lowers the PC import size; image files untouched. Backup in `Assets/TurboOptimizer/Backups` | *Restore textures* (PRO) |
-| Materials | Copies in `Assets/TurboOptimizer/Materials`, settings aligned so d4rk can merge them | *Restore originals* (PRO) |
+| Materials | Copies in `Assets/TurboOptimizer/Materials`; locked Poiyomi copies are unlocked (originals stay locked) and settings aligned so d4rk can merge them | *Restore originals* (PRO) |
 | PhysBones | AAO *Merge PhysBone*; stiff tips / fewer colliders only when needed | Edit → Undo / *Revert everything* |
 | Removed items | Mesh parts via AAO *Remove Mesh By Mask*, objects via the `EditorOnly` tag | *Restore* next to the item |
 | Menu | On upload, toggles that only controlled removed items are dropped from a copy of the menu | Restore the item |
@@ -180,7 +180,7 @@ Built on top of the great work of [anatawa12 (AAO)](https://github.com/anatawa12
 | Меши, материалы, лишние кости/блендшейпы | Добавляет компоненты AAO *Trace And Optimize* и d4rkAvatarOptimizer; они срабатывают только при загрузке | Удалить компоненты / «Вернуть всё как было» |
 | Полигоны | Компонент Meshia с бюджетом треугольников под цель (30% оставлено лицу) | Так же |
 | Текстуры | Уменьшает размер импорта для ПК; файлы картинок не трогаются. Бэкап в `Assets/TurboOptimizer/Backups` | «Откатить текстуры» (ПРО) |
-| Материалы | Копии в `Assets/TurboOptimizer/Materials`, настройки выровнены, чтобы d4rk мог их склеить | «Вернуть оригиналы» (ПРО) |
+| Материалы | Копии в `Assets/TurboOptimizer/Materials`; с залоченных копий Poiyomi снимается Lock (оригиналы остаются залоченными), настройки выровнены, чтобы d4rk мог их склеить | «Вернуть оригиналы» (ПРО) |
 | Физбоны | AAO *Merge PhysBone*; жёсткие кончики / меньше коллайдеров — только когда нужно | Edit → Undo / «Вернуть всё как было» |
 | Убранные вещи | Части меша — через AAO *Remove Mesh By Mask*, объекты — тег `EditorOnly` | «Вернуть» рядом с вещью |
 | Меню | При загрузке из копии меню убираются переключатели, которые управляли только убранными вещами | Вернуть вещь |

@@ -31,8 +31,8 @@ namespace TurboOptimizer
                            "Adds AAO, d4rk and Meshia components — they only run on upload. In the scene the avatar looks the same."));
                 Bullet(L.T("Уменьшает размер импорта текстур для ПК (сами картинки не трогает, бэкап в Assets/TurboOptimizer/Backups).",
                            "Lowers texture import size for PC (image files aren't touched; backup in Assets/TurboOptimizer/Backups)."));
-                Bullet(L.T("Делает копии материалов (Assets/TurboOptimizer/Materials) и выравнивает их настройки для склейки.",
-                           "Makes material copies (Assets/TurboOptimizer/Materials) and aligns their settings for merging."));
+                Bullet(L.T("Делает копии материалов (Assets/TurboOptimizer/Materials), снимает с копий Lock Poiyomi и выравнивает их настройки для склейки. Оригиналы остаются залоченными.",
+                           "Makes material copies (Assets/TurboOptimizer/Materials), unlocks locked Poiyomi copies and aligns their settings for merging. Originals stay locked."));
                 Bullet(L.T("Сливает физбоны (AAO Merge PhysBone); если нужно для ранга — делает кончики жёсткими и убирает часть коллайдеров.",
                            "Merges PhysBones (AAO Merge PhysBone); if the rank needs it — stiffens tips and removes some colliders."));
                 Bullet(L.T("Убранные вещи: части меша — через AAO Remove Mesh By Mask, объекты — тег EditorOnly. Файлы моделей не меняются.",

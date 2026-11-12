@@ -126,16 +126,28 @@ namespace TurboOptimizer
                 var arr0 = r.sharedMaterials;
                 for (int i = 0; i < arr0.Length; i++) if (arr0[i] != null) slots.Add((r, i, arr0[i]));
             }
-            bool Candidate(Material m) =>
-                m.shader.name.StartsWith(".poiyomi/") && !m.shader.name.Contains("Locked") && !swapped.Contains(m)
-                && !swapped.Contains(OriginalOf(m, backup));
+            // Залоченные (Lock) материалы берём, если можем снять Lock с их копии: исходный шейдер найден,
+            // и анимации не меняют свойства материала на их рендерерах (у залоченных такие свойства переименованы).
+            var animatedPaths = new HashSet<string>(AnimatedProps(avatar).Where(kv => kv.Value.Count > 0).Select(kv => kv.Key));
+            var animatedMats = new HashSet<Material>(slots.Where(s => animatedPaths.Contains(AnimationUtility.CalculateTransformPath(s.r.transform, avatar.transform))).Select(s => s.m));
+            bool unlockAvailable = ThryUnlock != null;
+            bool Candidate(Material m)
+            {
+                if (swapped.Contains(m) || swapped.Contains(OriginalOf(m, backup))) return false;
+                var orig = OriginalOf(m, backup) ?? m;
+                if (!IsLocked(orig)) return m.shader.name.StartsWith(".poiyomi/");
+                if (!unlockAvailable || animatedMats.Contains(m)) return false;
+                var os = OriginalShader(orig);
+                return os != null && os.name.StartsWith(".poiyomi/");
+            }
             var mats0 = slots.Select(s => s.m).Distinct().Where(Candidate).ToList();
             var skipped = slots.Select(s => s.m).Distinct().Where(m => !Candidate(m)).Select(m => m.name).ToList();
-            if (skipped.Count > 0) log.Add(L.T("= не трогаю (Lock, подмена анимацией или другой шейдер): ", "= skipped (locked, swapped by animation or other shader): ") + string.Join(", ", skipped));
+            if (skipped.Count > 0) log.Add(L.T("= не трогаю (Lock с анимацией, подмена анимацией или другой шейдер): ", "= skipped (locked with animations, swapped by animation or other shader): ") + string.Join(", ", skipped));
 
             // 2. копии материалов
             Directory.CreateDirectory(FolderOf(avatar));
             var copyOf = new Dictionary<Material, Material>();
+            var toUnlock = new List<Material>();
             foreach (var m in mats0)
             {
                 var path = AssetDatabase.GetAssetPath(m);
@@ -145,9 +157,19 @@ namespace TurboOptimizer
                     var orig = AssetDatabase.LoadAssetAtPath<Material>(backup[path]);
                     if (orig != null)
                     {
-                        m.CopyPropertiesFromMaterial(orig);
-                        m.shaderKeywords = orig.shaderKeywords;
-                        m.renderQueue = orig.renderQueue;
+                        if (IsLocked(orig))
+                        {
+                            var name = m.name;
+                            EditorUtility.CopySerialized(orig, m); // целиком, с тегами Lock — чтобы снова снять Lock
+                            m.name = name;
+                            toUnlock.Add(m);
+                        }
+                        else
+                        {
+                            m.CopyPropertiesFromMaterial(orig);
+                            m.shaderKeywords = orig.shaderKeywords;
+                            m.renderQueue = orig.renderQueue;
+                        }
                     }
                     copyOf[m] = m; continue;
                 }
@@ -156,8 +178,30 @@ namespace TurboOptimizer
                 AssetDatabase.CreateAsset(copy, copyPath);
                 backup[copyPath] = path;
                 copyOf[m] = copy;
+                if (IsLocked(m)) toUnlock.Add(copy);
             }
             WriteBackup(BackupFile(avatar), backup);
+            if (toUnlock.Count > 0)
+            {
+                // Снимаем Lock только с копий; оригиналы и их залоченные шейдеры остаются как были.
+                // Перед загрузкой Thry залочит всё снова, но уже после того, как d4rk склеит материалы.
+                try
+                {
+                    var bar = ThryUnlock.GetParameters()[1].ParameterType;
+                    ThryUnlock.Invoke(null, new object[] { toUnlock, System.Enum.ToObject(bar, 0) });
+                }
+                catch (System.Exception e) { log.Add("! Thry unlock: " + (e.InnerException ?? e).Message); }
+                var still = toUnlock.Where(IsLocked).ToList();
+                foreach (var m in still)
+                {
+                    // не получилось — оставляем на слотах оригинал, копию не используем
+                    var orig = copyOf.First(kv => kv.Value == m).Key;
+                    copyOf.Remove(orig);
+                }
+                int ok = toUnlock.Count - still.Count;
+                if (ok > 0) log.Add(L.T($"+ Lock снят с копий {ok} материалов (оригиналы не тронуты): ", $"+ Unlocked copies of {ok} materials (originals untouched): ") + string.Join(", ", toUnlock.Except(still).Select(m => m.name)));
+                if (still.Count > 0) log.Add(L.T("! не удалось снять Lock: ", "! couldn't unlock: ") + string.Join(", ", still.Select(m => m.name)));
+            }
             foreach (var s in slots.Where(s => copyOf.ContainsKey(s.m)))
             {
                 var arr = s.r.sharedMaterials;
@@ -339,6 +383,32 @@ namespace TurboOptimizer
         static bool UsesStencil(Material m) =>
             (m.HasProperty("_StencilPassOp") && m.GetFloat("_StencilPassOp") != 0)
             || (m.HasProperty("_StencilCompareFunction") && m.GetFloat("_StencilCompareFunction") != 8 && m.GetFloat("_StencilCompareFunction") != 0);
+
+        static bool IsLocked(Material m) => m != null && m.shader != null && m.shader.name.StartsWith("Hidden/Locked/");
+
+        // Исходный (незалоченный) шейдер по тегам, которые оставляет Thry при Lock.
+        static Shader OriginalShader(Material m)
+        {
+            var name = m.GetTag("OriginalShader", false, "");
+            var s = string.IsNullOrEmpty(name) ? null : Shader.Find(name);
+            if (s != null) return s;
+            var guid = m.GetTag("OriginalShaderGUID", false, "");
+            return string.IsNullOrEmpty(guid) ? null : AssetDatabase.LoadAssetAtPath<Shader>(AssetDatabase.GUIDToAssetPath(guid));
+        }
+
+        static System.Reflection.MethodInfo _thryUnlock; static bool _thrySearched;
+        static System.Reflection.MethodInfo ThryUnlock
+        {
+            get
+            {
+                if (_thrySearched) return _thryUnlock;
+                _thrySearched = true;
+                var t = Reflect.FindType("Thry.ThryEditor.ShaderOptimizer") ?? Reflect.FindType("Thry.ShaderOptimizer");
+                _thryUnlock = t?.GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static)
+                    .FirstOrDefault(m => m.Name == "UnlockMaterials" && m.GetParameters().Length == 2 && m.GetParameters()[1].ParameterType.IsEnum);
+                return _thryUnlock;
+            }
+        }
 
         static Material OriginalOf(Material m, Dictionary<string, string> backup) =>
             backup.TryGetValue(AssetDatabase.GetAssetPath(m), out var p) ? AssetDatabase.LoadAssetAtPath<Material>(p) : null;
