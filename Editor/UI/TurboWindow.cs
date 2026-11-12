@@ -15,6 +15,7 @@ namespace TurboOptimizer
         Rank _target = Rank.Medium;
         bool _keepClone;
         bool _unifyTransparent;
+        bool _anyCost;
         PerfReport _report;
         DateTime _reportTime;
         readonly List<string> _log = new List<string>();
@@ -340,6 +341,8 @@ namespace TurboOptimizer
                       (sps ? (_spsOff ? L.T("• SPS выключится целиком\n", "• SPS will be turned off completely\n")
                                       : L.T("• старая совместимость SPS с DPS выключится (уберёт свет)\n", "• SPS legacy DPS compatibility will be turned off (removes lights)\n")) : "") +
                       (removing.Count > 0 ? L.T("• убрать: ", "• remove: ") + string.Join(", ", removing.Select(i => i.Name)) + "\n" : "") +
+                      (_anyCost ? L.T("• ЛЮБОЙ ЦЕНОЙ: выключить физику мелких вещей, общий режим освещения, одинаковые текстуры, сильнее упростить меши (кроме лица)\n",
+                                      "• AT ANY COST: turn off physics of small things, one lighting mode, same-size textures, stronger mesh simplification (except the face)\n") : "") +
                       L.T("\nИсходные модели и текстуры не портятся. Всё можно вернуть кнопкой «Вернуть всё как было».",
                           "\nSource models and textures aren't damaged. Everything can be undone with \"Revert everything\".");
             if (!EditorUtility.DisplayDialog(Brand.Name, msg, L.T("Оптимизировать", "Optimize"), L.T("Отмена", "Cancel"))) return;
@@ -354,7 +357,7 @@ namespace TurboOptimizer
                 ToolLevers.AddTraceAndOptimize(_avatar, _log);
                 TextureLever.Apply(_avatar, _log);
                 var limit = Thresholds.Load(_target, false)?.Get("polyCount") ?? 70000;
-                MeshiaLever.Apply(_avatar, (int)(limit * 0.97), _log);
+                MeshiaLever.Apply(_avatar, (int)(limit * 0.97), _log, _anyCost ? 0.30f : 0.45f);
                 ToolLevers.AddD4rk(_avatar, _log);
                 _changes.Add(L.T("Меши и материалы склеиваются при загрузке, текстуры и полигоны уменьшены под цель. Вид почти не меняется.",
                                  "Meshes and materials are merged on upload; textures and polygons are reduced for the target. The look barely changes."));
@@ -377,13 +380,21 @@ namespace TurboOptimizer
                 if (removedNow.Count > 0) _changes.Add(L.T("Убрано с аватара: ", "Removed from the avatar: ") + string.Join(", ", removedNow) + ".");
 
                 EditorUtility.DisplayProgressBar(Brand.Name, L.T("Материалы…", "Materials…"), 0.5f);
-                MaterialHarmonizer.Apply(_avatar, _log, _unifyTransparent);
+                MaterialHarmonizer.Apply(_avatar, _log, _unifyTransparent, _anyCost);
                 _changes.Add(_unifyTransparent
                     ? L.T("Материалы выровнены для склейки, включая прозрачные — проверь, как лежат прозрачные слои.", "Materials aligned for merging, including transparent ones — check how transparent layers stack.")
                     : L.T("Материалы выровнены для склейки (вид не меняется).", "Materials aligned for merging (the look doesn't change)."));
 
                 EditorUtility.DisplayProgressBar(Brand.Name, L.T("Физбоны…", "PhysBones…"), 0.6f);
                 var plan = PhysBonePlanner.Plan(_avatar, _target, new PbOptions());
+                if (_anyCost && plan.Achieved > _target && plan.SuggestDrop.Count > 0)
+                {
+                    // любой ценой: выключаем физику вещей, которые планировщик выбрал как наименее заметные
+                    var opt = new PbOptions();
+                    opt.DropItems.UnionWith(plan.SuggestDrop);
+                    plan = PhysBonePlanner.Plan(_avatar, _target, opt);
+                    _changes.Add(L.T("Выключена физика: ", "Physics turned off: ") + string.Join(", ", opt.DropItems) + ".");
+                }
                 _pbPlanText = plan.ToText();
                 if (plan.Merges.Count > 0 || plan.Trims.Count > 0 || plan.DropColliders.Count > 0 || plan.Remove.Count > 0)
                 {

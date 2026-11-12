@@ -83,7 +83,13 @@ namespace TurboOptimizer
                 Neutral = P(("_EmissionStrength1", 0)) },
             new Feature { Name = "Glitter", Toggle = "_GlitterEnable", Keyword = "_SUNDISK_SIMPLE",
                 Neutral = P(("_GlitterBrightness", 0), ("_GlitterBlendType", 0)) },
+            // Reflections & Specular (Mochie): при нулевой металличности, отражениях и бликах ничего не меняет
+            new Feature { Name = "Reflections & Specular", Toggle = "_MochieBRDF", Keyword = "MOCHIE_PBR",
+                Neutral = P(("_MochieReflectionStrength", 0), ("_MochieSpecularStrength", 0), ("_MochieMetallicMultiplier", 0)) },
         };
+
+        // Режимы освещения Poiyomi (KeywordEnum _LightingMode)
+        static readonly string[] LightingModes = { "TEXTURERAMP", "MULTILAYER_MATH", "WRAPPED", "SKIN", "SHADEMAP", "FLAT", "REALISTIC", "CLOTH", "SDF" };
 
         static bool GlobalMasksUnused(Material m)
         {
@@ -113,7 +119,9 @@ namespace TurboOptimizer
         public static string FolderOf(GameObject avatar) => $"Assets/TurboOptimizer/Materials/{Safe(avatar.name)}";
         static string BackupFile(GameObject avatar) => $"Assets/TurboOptimizer/Backups/{Safe(avatar.name)}/materials.txt";
 
-        public static void Apply(GameObject avatar, List<string> log, bool unifyTransparent = false)
+        // aggressive — режим «Good любой ценой»: общий режим освещения в группе и одинаковые размеры/форматы текстур
+        // (вид может немного измениться).
+        public static void Apply(GameObject avatar, List<string> log, bool unifyTransparent = false, bool aggressive = false)
         {
             var swapped = SwappedMaterials(avatar);
             var backup = ReadBackup(BackupFile(avatar)); // путь копии → путь оригинала
@@ -128,17 +136,29 @@ namespace TurboOptimizer
             }
             // Залоченные (Lock) материалы берём, если можем снять Lock с их копии: исходный шейдер найден,
             // и анимации не меняют свойства материала на их рендерерах (у залоченных такие свойства переименованы).
-            var animatedPaths = new HashSet<string>(AnimatedProps(avatar).Where(kv => kv.Value.Count > 0).Select(kv => kv.Key));
-            var animatedMats = new HashSet<Material>(slots.Where(s => animatedPaths.Contains(AnimationUtility.CalculateTransformPath(s.r.transform, avatar.transform))).Select(s => s.m));
+            // Свойства, которые анимации меняют на рендерерах этого материала. Если у залоченного материала такое свойство
+            // переименовано (Thry «Renamed»), после снятия Lock анимация перестанет работать — такие не берём.
+            // Если имя совпадает с исходным шейдером — анимация продолжит работать, Lock снимать можно.
+            var animatedAll = AnimatedProps(avatar);
+            var animByOrig = new Dictionary<Material, HashSet<string>>();
+            foreach (var s0 in slots)
+            {
+                var pth = AnimationUtility.CalculateTransformPath(s0.r.transform, avatar.transform);
+                if (!animatedAll.TryGetValue(pth, out var props0)) continue;
+                if (!animByOrig.TryGetValue(s0.m, out var set0)) animByOrig[s0.m] = set0 = new HashSet<string>();
+                set0.UnionWith(props0);
+            }
+            bool AnimationsSurviveUnlock(Material m, Shader original) =>
+                !animByOrig.TryGetValue(m, out var props1) || props1.All(pr => original.FindPropertyIndex(pr) >= 0);
             bool unlockAvailable = ThryUnlock != null;
             bool Candidate(Material m)
             {
                 if (swapped.Contains(m) || swapped.Contains(OriginalOf(m, backup))) return false;
                 var orig = OriginalOf(m, backup) ?? m;
                 if (!IsLocked(orig)) return m.shader.name.StartsWith(".poiyomi/");
-                if (!unlockAvailable || animatedMats.Contains(m)) return false;
+                if (!unlockAvailable) return false;
                 var os = OriginalShader(orig);
-                return os != null && os.name.StartsWith(".poiyomi/");
+                return os != null && os.name.StartsWith(".poiyomi/") && AnimationsSurviveUnlock(m, os);
             }
             var mats0 = slots.Select(s => s.m).Distinct().Where(Candidate).ToList();
             var skipped = slots.Select(s => s.m).Distinct().Where(m => !Candidate(m)).Select(m => m.name).ToList();
@@ -292,6 +312,26 @@ namespace TurboOptimizer
                     log.Add(L.T($"  {f.Name}: включено с нулевой силой у {lacking.Count} материалов группы «{g.Key}»", $"  {f.Name}: enabled at zero strength on {lacking.Count} materials of group «{g.Key}»"));
                 }
             }
+            if (aggressive)
+            {
+                // общий режим освещения в группе — самый частый (вид теней может измениться)
+                foreach (var g in mats.Where(m => m.HasProperty("_LightingMode")).GroupBy(GroupKey))
+                {
+                    var mode = g.GroupBy(m => Mathf.RoundToInt(m.GetFloat("_LightingMode"))).OrderByDescending(x => x.Count()).ThenBy(x => x.Key).First().Key;
+                    if (mode < 0 || mode >= LightingModes.Length) continue;
+                    foreach (var m in g.Where(m => Mathf.RoundToInt(m.GetFloat("_LightingMode")) != mode))
+                    {
+                        log.Add($"  {m.name}: {L.T("режим освещения", "lighting mode")} {LightingName(m.GetFloat("_LightingMode"))} → {LightingModes[mode]}");
+                        m.SetFloat("_LightingMode", mode);
+                        foreach (var k in LightingModes) m.DisableKeyword("_LIGHTINGMODE_" + k);
+                        m.EnableKeyword("_LIGHTINGMODE_" + LightingModes[mode]);
+                    }
+                }
+                // одинаковые размеры и форматы текстур в группе — иначе d4rk не соберёт их в общий массив
+                foreach (var g in mats.GroupBy(GroupKey).Where(g => g.Count() > 1))
+                    TextureLever.Unify(avatar, g.ToList(), log);
+            }
+
             // запасной шейдер VRChat (виден, только когда шейдеры у зрителя скрыты) — один на группу
             foreach (var g in mats.GroupBy(GroupKey))
             {
@@ -383,6 +423,8 @@ namespace TurboOptimizer
         static bool UsesStencil(Material m) =>
             (m.HasProperty("_StencilPassOp") && m.GetFloat("_StencilPassOp") != 0)
             || (m.HasProperty("_StencilCompareFunction") && m.GetFloat("_StencilCompareFunction") != 8 && m.GetFloat("_StencilCompareFunction") != 0);
+
+        static string LightingName(float v) { int i = Mathf.RoundToInt(v); return i >= 0 && i < LightingModes.Length ? LightingModes[i] : i.ToString(); }
 
         static bool IsLocked(Material m) => m != null && m.shader != null && m.shader.name.StartsWith("Hidden/Locked/");
 

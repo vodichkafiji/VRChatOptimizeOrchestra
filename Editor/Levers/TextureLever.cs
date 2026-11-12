@@ -78,6 +78,70 @@ namespace TurboOptimizer
                                 : L.T("= Текстуры уже в нужных размерах", "= Textures are already the right size"));
         }
 
+        // Режим «Good любой ценой»: у текстур одного свойства в группе склеиваемых материалов — одинаковые размер и формат,
+        // чтобы d4rk сложил их в общий массив текстур (Merge MainTex и др.). Нормали получают тип Normal map.
+        // Размер выбирается так, чтобы подошло как можно больше текстур; больше текущей настройки не делаем.
+        public static void Unify(GameObject avatar, List<Material> group, List<string> log)
+        {
+            var backupFile = BackupPath(avatar);
+            var backup = ReadBackup(backupFile);
+            int changed = 0;
+            AssetDatabase.StartAssetEditing();
+            try
+            {
+                foreach (var prop in group.SelectMany(m => m.GetTexturePropertyNames()).Distinct().ToList())
+                {
+                    var items = group.Where(m => m.HasProperty(prop)).Select(m => m.GetTexture(prop) as Texture2D).Where(t => t != null).Distinct()
+                        .Select(t => (path: AssetDatabase.GetAssetPath(t), ti: AssetImporter.GetAtPath(AssetDatabase.GetAssetPath(t)) as TextureImporter))
+                        .Where(x => x.ti != null && x.path.StartsWith("Assets/")).ToList();
+                    if (items.Count < 2) continue;
+                    var lp = prop.ToLowerInvariant();
+                    bool normal = lp.Contains("bump") || lp.Contains("normal") || items.Any(x => x.ti.textureType == TextureImporterType.NormalMap);
+                    var src = items.Select(x => { x.ti.GetSourceTextureWidthAndHeight(out int w, out int h); return (x.path, x.ti, w, h); }).ToList();
+                    foreach (var byAspect in src.GroupBy(x => Mathf.RoundToInt(100f * x.w / Mathf.Max(1, x.h))))
+                    {
+                        var list = byAspect.ToList();
+                        if (list.Count < 2) continue;
+                        int cap = list.Max(x => CurrentMax(x.ti));
+                        int best = 0, bestCount = 0;
+                        foreach (var size in new[] { 2048, 1024, 512, 256 })
+                        {
+                            if (size > cap) continue;
+                            int c = list.Count(x => Mathf.Max(x.w, x.h) >= size);
+                            if (c > bestCount) { best = size; bestCount = c; }
+                        }
+                        if (bestCount < 2) continue;
+                        bool alpha = !normal && list.Any(x => x.ti.DoesSourceTextureHaveAlpha() && x.ti.alphaSource != TextureImporterAlphaSource.None);
+                        var fmt = normal || alpha ? TextureImporterFormat.DXT5 : TextureImporterFormat.DXT1;
+                        foreach (var x in list.Where(x => Mathf.Max(x.w, x.h) >= best))
+                        {
+                            var ps = x.ti.GetPlatformTextureSettings("Standalone");
+                            bool typeFix = normal && x.ti.textureType != TextureImporterType.NormalMap;
+                            if (ps.overridden && ps.maxTextureSize == best && ps.format == fmt && !typeFix) continue;
+                            if (!backup.TryGetValue(x.path, out var b)) backup[x.path] = $"{ps.overridden}|{ps.maxTextureSize}|{(int)ps.format}|{(int)x.ti.textureType}";
+                            else if (b.Split('|').Length == 3) backup[x.path] = b + "|" + (int)x.ti.textureType;
+                            ps.overridden = true;
+                            ps.maxTextureSize = best;
+                            ps.format = fmt;
+                            x.ti.SetPlatformTextureSettings(ps);
+                            if (typeFix) x.ti.textureType = TextureImporterType.NormalMap;
+                            x.ti.SaveAndReimport();
+                            changed++;
+                        }
+                    }
+                }
+            }
+            finally { AssetDatabase.StopAssetEditing(); }
+            WriteBackup(backupFile, backup);
+            if (changed > 0) log.Add(L.T($"+ Текстуры выровнены для склейки: {changed} (одинаковые размер и формат)", $"+ Textures aligned for merging: {changed} (same size and format)"));
+        }
+
+        static int CurrentMax(TextureImporter ti)
+        {
+            var ps = ti.GetPlatformTextureSettings("Standalone");
+            return ps.overridden ? ps.maxTextureSize : ti.maxTextureSize;
+        }
+
         public static int Restore(GameObject avatar)
         {
             var file = BackupPath(avatar);
@@ -92,6 +156,7 @@ namespace TurboOptimizer
                 ps.maxTextureSize = int.Parse(f[1]);
                 ps.format = (TextureImporterFormat)int.Parse(f[2]);
                 ti.SetPlatformTextureSettings(ps);
+                if (f.Length > 3) ti.textureType = (TextureImporterType)int.Parse(f[3]);
                 ti.SaveAndReimport();
             }
             if (File.Exists(file)) File.Delete(file);

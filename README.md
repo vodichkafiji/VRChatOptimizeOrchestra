@@ -66,7 +66,7 @@ Then open **Tools → fiji's Optimize Orchestra**.
 
 1. **Avatar and target.** Drag the avatar root (the object with *VRC Avatar Descriptor*) into the field. Choose a target: *Poor*, *Medium* (a good start) or *Good*.
 2. **Check.** Press *Check*. The tool builds a test copy and shows the real rank and what's holding it back, with an explanation for every category. VRCFury or Thry dialogs may pop up — press *Auto-Fix* / *Yes*, that's normal.
-3. **Settings.** Keep SPS or turn it off completely; allow merging transparent materials (can change how see-through layers stack).
+3. **Settings.** Keep SPS or turn it off completely; allow merging transparent materials (can change how see-through layers stack). **Reach the target at any cost** — for Good on complex avatars: turns off physics of small things and stiffens long hair, gives merged materials one lighting mode, makes textures the same size and format, and simplifies all meshes except the face harder. The look changes noticeably; everything can be reverted.
 4. **What to remove (optional).** Tick items you don't need. Each one shows what removing it gains.
 5. **Optimize.** One button applies everything that keeps the look: mesh and material merging, smaller textures, polygon reduction, PhysBone merging, and — only if the rank needs it — stiff PhysBone tips and fewer colliders. Then it checks again and shows *before → after* and a list of what changed.
 6. **Not enough?** The tool suggests which items to remove to reach the target and ticks them. Untick anything you want to keep and press *Optimize* again. If the target isn't realistic for this avatar, it says so.
@@ -79,7 +79,7 @@ Then open **Tools → fiji's Optimize Orchestra**.
 | Meshes, materials, unused bones/blendshapes | Adds AAO *Trace And Optimize* and d4rkAvatarOptimizer components; they run only on upload | Remove the components / *Revert everything* |
 | Polygons | Meshia component with a triangle budget for the target (30% kept for the face) | Same |
 | Textures | Lowers the PC import size; image files untouched. Backup in `Assets/TurboOptimizer/Backups` | *Restore textures* (PRO) |
-| Materials | Copies in `Assets/TurboOptimizer/Materials`; locked Poiyomi copies are unlocked (originals stay locked) and settings aligned so d4rk can merge them | *Restore originals* (PRO) |
+| Materials | Copies in `Assets/TurboOptimizer/Materials`; locked Poiyomi copies are unlocked (originals stay locked) and settings aligned so d4rk can merge them. *At any cost:* one lighting mode per group, same-size textures | *Restore originals* (PRO) |
 | PhysBones | AAO *Merge PhysBone*; stiff tips / fewer colliders only when needed | Edit → Undo / *Revert everything* |
 | Removed items | Mesh parts via AAO *Remove Mesh By Mask*, objects via the `EditorOnly` tag | *Restore* next to the item |
 | Menu | On upload, toggles that only controlled removed items are dropped from a copy of the menu | Restore the item |
@@ -167,7 +167,7 @@ Built on top of the great work of [anatawa12 (AAO)](https://github.com/anatawa12
 
 1. **Аватар и цель.** Перетащи корень аватара (объект с *VRC Avatar Descriptor*) в поле. Выбери цель: *Poor*, *Medium* (хорошее начало) или *Good*.
 2. **Проверка.** Нажми «Проверить». Плагин соберёт тестовую копию и покажет настоящий ранг и что ему мешает — с объяснением каждой категории. Могут выскочить окна VRCFury или Thry — жми *Auto-Fix* / *Yes*, это нормально.
-3. **Настройки.** Оставить SPS или выключить его целиком; разрешить склейку прозрачных материалов (может поменять, как лежат полупрозрачные слои).
+3. **Настройки.** Оставить SPS или выключить его целиком; разрешить склейку прозрачных материалов (может поменять, как лежат полупрозрачные слои). **Дожать до цели любой ценой** — для Good на сложных аватарах: выключает физику мелких вещей и делает жёстче длинные пряди, даёт склеиваемым материалам общий режим освещения, делает текстуры одинакового размера и формата и сильнее упрощает все меши, кроме лица. Вид заметно меняется; всё откатывается.
 4. **Что убрать (по желанию).** Отметь ненужные вещи. У каждой видно, что даст её удаление.
 5. **Оптимизация.** Одна кнопка делает всё, что не меняет вид: склейку мешей и материалов, уменьшение текстур и полигонов, слияние физбонов, а если нужно для ранга — жёсткие кончики физбонов и меньше коллайдеров. Потом проверяет ещё раз и показывает «было → стало» и список изменений.
 6. **Не хватило?** Плагин подскажет, какие вещи убрать до цели, и сам их отметит. Сними галочки с того, что хочешь оставить, и нажми «Оптимизировать» ещё раз. Если цель для аватара нереальна — он об этом скажет.
@@ -180,7 +180,7 @@ Built on top of the great work of [anatawa12 (AAO)](https://github.com/anatawa12
 | Меши, материалы, лишние кости/блендшейпы | Добавляет компоненты AAO *Trace And Optimize* и d4rkAvatarOptimizer; они срабатывают только при загрузке | Удалить компоненты / «Вернуть всё как было» |
 | Полигоны | Компонент Meshia с бюджетом треугольников под цель (30% оставлено лицу) | Так же |
 | Текстуры | Уменьшает размер импорта для ПК; файлы картинок не трогаются. Бэкап в `Assets/TurboOptimizer/Backups` | «Откатить текстуры» (ПРО) |
-| Материалы | Копии в `Assets/TurboOptimizer/Materials`; с залоченных копий Poiyomi снимается Lock (оригиналы остаются залоченными), настройки выровнены, чтобы d4rk мог их склеить | «Вернуть оригиналы» (ПРО) |
+| Материалы | Копии в `Assets/TurboOptimizer/Materials`; с залоченных копий Poiyomi снимается Lock (оригиналы остаются залоченными), настройки выровнены, чтобы d4rk мог их склеить. *Любой ценой:* общий режим освещения в группе, текстуры одного размера | «Вернуть оригиналы» (ПРО) |
 | Физбоны | AAO *Merge PhysBone*; жёсткие кончики / меньше коллайдеров — только когда нужно | Edit → Undo / «Вернуть всё как было» |
 | Убранные вещи | Части меша — через AAO *Remove Mesh By Mask*, объекты — тег `EditorOnly` | «Вернуть» рядом с вещью |
 | Меню | При загрузке из копии меню убираются переключатели, которые управляли только убранными вещами | Вернуть вещь |

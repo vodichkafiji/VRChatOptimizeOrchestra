@@ -21,7 +21,7 @@ namespace TurboOptimizer
         public static int CurrentTriangles(GameObject avatar) =>
             AvatarUtil.MeshRenderers(avatar).Sum(r => AvatarUtil.Triangles(AvatarUtil.GetMesh(r)));
 
-        public static void Apply(GameObject avatar, int budget, List<string> log)
+        public static void Apply(GameObject avatar, int budget, List<string> log, float minKeep = MinKeep)
         {
             var type = Reflect.FindType("Meshia.MeshSimplification.Ndmf.MeshiaCascadingAvatarMeshSimplifier");
             if (type == null) { log.Add(L.T("! Meshia не установлен — треугольники не уменьшаются", "! Meshia isn't installed — triangles won't be reduced")); return; }
@@ -89,7 +89,7 @@ namespace TurboOptimizer
                 targets[faceItem.e] = f; left -= f; adjustable.Remove(faceItem);
             }
             long rest = adjustable.Sum(x => (long)x.tris);
-            float ratio = rest > 0 ? Mathf.Clamp(Mathf.Max(0, left) / (float)rest, MinKeep, 1f) : 1f;
+            float ratio = rest > 0 ? Mathf.Clamp(Mathf.Max(0, left) / (float)rest, minKeep, 1f) : 1f;
             foreach (var x in adjustable) targets[x.e] = Mathf.Max(64, Mathf.FloorToInt(x.tris * ratio));
             foreach (var kv in targets) { fEnabled.SetValue(kv.Key, true); fFixed.SetValue(kv.Key, false); fTarget.SetValue(kv.Key, kv.Value); }
 

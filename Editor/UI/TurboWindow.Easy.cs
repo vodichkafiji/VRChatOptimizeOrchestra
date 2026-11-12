@@ -46,6 +46,15 @@ namespace TurboOptimizer
                     _unifyTransparent = EditorGUILayout.ToggleLeft(L.T("Склеивать и прозрачные вещи", "Merge transparent items too"), _unifyTransparent, EditorStyles.boldLabel);
                     GUILayout.Label(L.T("Даст ещё несколько склеенных материалов. Но прозрачные слои (сетка, кружево, стекло) могут начать рисоваться в другом порядке — проверь глазами.",
                                         "Merges a few more materials. But transparent layers (mesh, lace, glass) may start drawing in a different order — check by eye."), Styles.Small);
+                    EditorGUILayout.Space(4);
+                    _anyCost = EditorGUILayout.ToggleLeft(L.T("Дожать до цели любой ценой", "Reach the target at any cost"), _anyCost, EditorStyles.boldLabel);
+                    if (_anyCost)
+                        EditorGUILayout.HelpBox(L.T(
+                            "Вид и поведение изменятся заметно:\n• физика мелких вещей (ушки, хвост, прыгающие части тела) выключится, длинные пряди волос станут жёстче\n• у склеиваемых материалов станет общий режим освещения (тени могут выглядеть иначе)\n• текстуры в группе получат одинаковый размер и формат\n• все меши, кроме лица, упростятся сильнее (до 30%)\nВсё откатывается кнопкой «Вернуть всё как было».",
+                            "The look and behavior will noticeably change:\n• physics of small things (ears, tail, jiggle bones) turns off, long hair strands get stiffer\n• merged materials get one lighting mode (shadows may look different)\n• textures in a group get the same size and format\n• all meshes except the face are simplified harder (down to 30%)\nEverything can be undone with \"Revert everything\"."), MessageType.Warning);
+                    else
+                        GUILayout.Label(L.T("Для Good на сложных аватарах обычно нужно: без этого плагин меняет только то, что не видно.",
+                                            "Usually needed for Good on complex avatars: without it the plugin only changes what isn't visible."), Styles.Small);
                 }
 
                 // ---- шаг 3б: вещи — отметить, что убрать сразу
