@@ -1,5 +1,7 @@
 # fiji's Optimize Orchestra ✩✩✩
 
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/vodichkafiji)
+
 **English** · [Русский](#русский)
 
 A Unity editor tool that brings a VRChat avatar to **Medium** or **Good** performance rank — without you having to understand how AAO, d4rkAvatarOptimizer, Meshia and VRCFury work. It's an orchestra conductor for optimizers: it checks the avatar, decides which tool to apply and how hard, and shows the real rank you'll get in game.
@@ -107,11 +109,11 @@ Built on top of the great work of [anatawa12 (AAO)](https://github.com/anatawa12
 
 | Инструмент | Версия | Добавить в VCC (в один клик) |
 |---|---|---|
-| NDMF | 1.14+ | [**Добавить в VCC**](https://vodichkafiji.github.io/VRChatOptimizeOrchestra/add/ndmf.html) |
-| Avatar Optimizer (AAO) | 1.9+ | [**Добавить в VCC**](https://vodichkafiji.github.io/VRChatOptimizeOrchestra/add/aao.html) |
-| d4rkAvatarOptimizer | 4.7+ | [**Добавить в VCC**](https://vodichkafiji.github.io/VRChatOptimizeOrchestra/add/d4rk.html) |
-| Meshia Mesh Simplification | 3.3+ | [**Добавить в VCC**](https://vodichkafiji.github.io/VRChatOptimizeOrchestra/add/meshia.html) |
-| VRCFury — если он есть на аватаре | любая | [**Добавить в VCC**](https://vodichkafiji.github.io/VRChatOptimizeOrchestra/add/vrcfury.html) |
+| [NDMF](https://github.com/bdunderscore/ndmf) | 1.14+ | [**Добавить в VCC**](https://vodichkafiji.github.io/VRChatOptimizeOrchestra/add/ndmf.html) |
+| [Avatar Optimizer (AAO)](https://vpm.anatawa12.com/avatar-optimizer/en/) | 1.9+ | [**Добавить в VCC**](https://vodichkafiji.github.io/VRChatOptimizeOrchestra/add/aao.html) |
+| [d4rkAvatarOptimizer](https://github.com/d4rkc0d3r/d4rkAvatarOptimizer) | 4.7+ | [**Добавить в VCC**](https://vodichkafiji.github.io/VRChatOptimizeOrchestra/add/d4rk.html) |
+| [Meshia Mesh Simplification](https://github.com/RamType0/Meshia.MeshSimplification) | 3.3+ | [**Добавить в VCC**](https://vodichkafiji.github.io/VRChatOptimizeOrchestra/add/meshia.html) |
+| [VRCFury](https://vrcfury.com) — если он есть на аватаре | любая | [**Добавить в VCC**](https://vodichkafiji.github.io/VRChatOptimizeOrchestra/add/vrcfury.html) |
 
 Все ссылки на одной странице: **[vodichkafiji.github.io/VRChatOptimizeOrchestra](https://vodichkafiji.github.io/VRChatOptimizeOrchestra/)**
 
