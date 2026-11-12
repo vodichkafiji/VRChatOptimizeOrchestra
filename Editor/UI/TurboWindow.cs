@@ -16,6 +16,7 @@ namespace TurboOptimizer
         bool _keepClone;
         bool _unifyTransparent;
         bool _anyCost;
+        bool _keepFace;
         PerfReport _report;
         DateTime _reportTime;
         readonly List<string> _log = new List<string>();
@@ -357,7 +358,7 @@ namespace TurboOptimizer
                 ToolLevers.AddTraceAndOptimize(_avatar, _log);
                 TextureLever.Apply(_avatar, _log);
                 var limit = Thresholds.Load(_target, false)?.Get("polyCount") ?? 70000;
-                MeshiaLever.Apply(_avatar, (int)(limit * 0.97), _log, _anyCost ? 0.30f : 0.45f);
+                MeshiaLever.Apply(_avatar, (int)(limit * 0.97), _log, _anyCost ? 0.30f : 0.45f, !_keepFace);
                 ToolLevers.AddD4rk(_avatar, _log);
                 _changes.Add(L.T("Меши и материалы склеиваются при загрузке, текстуры и полигоны уменьшены под цель. Вид почти не меняется.",
                                  "Meshes and materials are merged on upload; textures and polygons are reduced for the target. The look barely changes."));

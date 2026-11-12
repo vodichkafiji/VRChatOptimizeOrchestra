@@ -15,13 +15,14 @@ namespace TurboOptimizer
         public const string HolderName = "TurboOptimizer Mesh Budget";
         const float FaceShare = 0.30f;     // доля бюджета для меша лица/тела
         const int KeepSmallerThan = 1500;  // мелкие меши не трогаем
-        const float FaceKeep = 0.80f;      // меш лица/тела: не меньше 80% треугольников (иначе ломаются лицо и шейпы)
+        const float FaceKeep = 0.60f;      // меш лица: не меньше 60% треугольников, и только с защитой (см. ProtectFace)
         const float MinKeep = 0.45f;       // остальные меши: не меньше 45%
 
         public static int CurrentTriangles(GameObject avatar) =>
             AvatarUtil.MeshRenderers(avatar).Sum(r => AvatarUtil.Triangles(AvatarUtil.GetMesh(r)));
 
-        public static void Apply(GameObject avatar, int budget, List<string> log, float minKeep = MinKeep)
+        // simplifyFace = false — меш лица не трогается совсем (галочка «Не упрощать лицо»).
+        public static void Apply(GameObject avatar, int budget, List<string> log, float minKeep = MinKeep, bool simplifyFace = true)
         {
             var type = Reflect.FindType("Meshia.MeshSimplification.Ndmf.MeshiaCascadingAvatarMeshSimplifier");
             if (type == null) { log.Add(L.T("! Meshia не установлен — треугольники не уменьшаются", "! Meshia isn't installed — triangles won't be reduced")); return; }
@@ -69,8 +70,7 @@ namespace TurboOptimizer
             {
                 var e = map[r];
                 int tris = AvatarUtil.Triangles(AvatarUtil.GetMesh(r));
-                // меш лица не упрощаем совсем: мимика (блендшейпы) ломается даже при лёгком упрощении (проверено на Mishi)
-                if (tris < KeepSmallerThan || AvatarUtil.IsPenetrator(r) || r == face)
+                if (tris < KeepSmallerThan || AvatarUtil.IsPenetrator(r) || (r == face && !simplifyFace))
                 {
                     fEnabled.SetValue(e, false); fTarget.SetValue(e, tris); left -= tris;
                     if (AvatarUtil.IsPenetrator(r)) log.Add($"  {r.name}: SPS/DPS, {L.T("не упрощается", "not simplified")}");
@@ -79,18 +79,30 @@ namespace TurboOptimizer
                 else adjustable.Add((e, r, tris));
             }
 
-            // Пределы «без порчи вида»: меш лица (часто это и всё тело) ужимаем не сильнее чем до FaceKeep,
-            // остальные — не сильнее чем до MinKeep. Если так в бюджет не влезть — не ломаем, а просим убрать вещи.
+            // Одна общая доля для всех, но с пределами «без порчи вида»: лицо не меньше FaceKeep, остальные не меньше minKeep.
+            // Если кто-то упёрся в свой предел, остальным достаётся меньше. Не влезает — не ломаем, а просим убрать вещи.
             var targets = new Dictionary<object, int>();
-            var faceItem = adjustable.FirstOrDefault(x => x.r == face);
-            if (faceItem.e != null)
+            float Floor(Renderer r) => r == face ? FaceKeep : minKeep;
+            var open = adjustable.ToList();
+            int budgetLeft = left;
+            for (int it = 0; it < 5 && open.Count > 0; it++)
             {
-                int f = Mathf.Min(faceItem.tris, Mathf.Max(Mathf.CeilToInt(faceItem.tris * FaceKeep), Mathf.RoundToInt(budget * FaceShare)));
-                targets[faceItem.e] = f; left -= f; adjustable.Remove(faceItem);
+                long sum = open.Sum(x => (long)x.tris);
+                float ratio = Mathf.Clamp(Mathf.Max(0, budgetLeft) / (float)sum, 0f, 1f);
+                var floored = open.Where(x => ratio < Floor(x.r)).ToList();
+                if (floored.Count == 0 || it == 4)
+                {
+                    foreach (var x in open) targets[x.e] = Mathf.Max(64, Mathf.FloorToInt(x.tris * Mathf.Max(ratio, Floor(x.r))));
+                    break;
+                }
+                foreach (var x in floored) { int t = Mathf.CeilToInt(x.tris * Floor(x.r)); targets[x.e] = t; budgetLeft -= t; open.Remove(x); }
             }
-            long rest = adjustable.Sum(x => (long)x.tris);
-            float ratio = rest > 0 ? Mathf.Clamp(Mathf.Max(0, left) / (float)rest, minKeep, 1f) : 1f;
-            foreach (var x in adjustable) targets[x.e] = Mathf.Max(64, Mathf.FloorToInt(x.tris * ratio));
+            var faceEntry = adjustable.FirstOrDefault(x => x.r == face);
+            if (faceEntry.e != null)
+            {
+                ProtectFace(faceEntry.e, entryType);
+                log.Add($"  {face.name}: {L.T("лицо упрощается бережно", "face simplified gently")} ({faceEntry.tris} → {targets[faceEntry.e]}, {L.T("края глаз, рта и ресниц сохраняются", "eye, mouth and lash edges kept")})");
+            }
             foreach (var kv in targets) { fEnabled.SetValue(kv.Key, true); fFixed.SetValue(kv.Key, false); fTarget.SetValue(kv.Key, kv.Value); }
 
             int result = 0;
@@ -101,10 +113,34 @@ namespace TurboOptimizer
                 result += t;
             }
             EditorUtility.SetDirty(comp);
-            log.Add(L.T($"+ Meshia: треугольники {total} → ~{result} (бюджет {budget}, лицу {FaceShare:P0})", $"+ Meshia: triangles {total} → ~{result} (budget {budget}, face {FaceShare:P0})"));
+            log.Add(L.T($"+ Meshia: треугольники {total} → ~{result} (бюджет {budget})", $"+ Meshia: triangles {total} → ~{result} (budget {budget})"));
             if (result > budget)
                 log.Add(L.T($"! Полигоны: без порчи вида можно ужать только до ~{result} (лимит {budget}). Остальное — убрать вещи, совет появится после проверки.",
                             $"! Polygons: without spoiling the look they can only go down to ~{result} (limit {budget}). Remove items for the rest — advice appears after the check."));
+        }
+
+        // Защита лица в Meshia: сохраняем края (вырезы глаз, рот, ресницы) у вершин на костях головы, точная интерполяция UV
+        // (без неё текстура лица «плывёт» белыми пятнами — так было на Mishi) и сохранение кривизны.
+        static void ProtectFace(object entry, Type entryType)
+        {
+            try
+            {
+                var fOpt = entryType.GetField("Options");
+                object opt = fOpt.GetValue(entry); // boxed struct
+                var ot = opt.GetType();
+                ot.GetField("UseBarycentricCoordinateInterpolation")?.SetValue(opt, true);
+                ot.GetField("PreserveSurfaceCurvature")?.SetValue(opt, true);
+                fOpt.SetValue(entry, opt);
+                var fBones = entryType.GetField("PreserveBorderEdgesBones");
+                if (fBones != null)
+                {
+                    ulong mask = (ulong)fBones.GetValue(entry);
+                    foreach (var b in new[] { HumanBodyBones.Head, HumanBodyBones.Neck, HumanBodyBones.LeftEye, HumanBodyBones.RightEye, HumanBodyBones.Jaw })
+                        mask |= 1ul << (int)b;
+                    fBones.SetValue(entry, mask);
+                }
+            }
+            catch (Exception) { /* другая версия Meshia — без защиты, но и без ошибки */ }
         }
     }
 }
