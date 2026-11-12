@@ -24,7 +24,9 @@ namespace TurboOptimizer
 
         static (string, float)[] P(params (string, float)[] p) => p;
 
-        // Только функции, для которых точно известно «нулевое» состояние.
+        // Только функции, для которых точно известно «нулевое» состояние. ВАЖНО: нулевая «сила» (Intensity) не делает функцию
+        // невидимой — у Matcap 0 по умолчанию Replace = 1, и при силе 0 цвет заменяется ЧЁРНЫМ (Hecate стала чёрной).
+        // Поэтому «нули» — это все способы смешивания (Replace/Multiply/Add/…), проверено по коду Poiyomi 9.3.
         static readonly Feature[] Features =
         {
             new Feature { Name = "Adjust Colors", Toggle = "_MainColorAdjustToggle", Keyword = "COLOR_GRADING_HDR",
@@ -36,13 +38,13 @@ namespace TurboOptimizer
             new Feature { Name = "AudioLink", Toggle = "_EnableAudioLink", Keyword = "POI_AUDIOLINK",
                 Neutral = P() }, // сам по себе ничего не рисует — эффекты включаются отдельно
             new Feature { Name = "Matcap 1", Toggle = "_Matcap2Enable", Keyword = "COLOR_GRADING_HDR_3D",
-                Neutral = P(("_Matcap2Intensity", 0), ("_Matcap2EmissionStrength", 0)) },
+                Neutral = P(("_Matcap2Replace", 0), ("_Matcap2Multiply", 0), ("_Matcap2Add", 0), ("_Matcap2Mixed", 0), ("_Matcap2Screen", 0), ("_Matcap2AddToLight", 0), ("_Matcap2EmissionStrength", 0), ("_Matcap2AlphaOverride", 0)) },
             new Feature { Name = "Matcap 2", Toggle = "_Matcap3Enable", Keyword = "POI_MATCAP2",
-                Neutral = P(("_Matcap3Intensity", 0), ("_Matcap3EmissionStrength", 0)) },
+                Neutral = P(("_Matcap3Replace", 0), ("_Matcap3Multiply", 0), ("_Matcap3Add", 0), ("_Matcap3Mixed", 0), ("_Matcap3Screen", 0), ("_Matcap3AddToLight", 0), ("_Matcap3EmissionStrength", 0), ("_Matcap3AlphaOverride", 0)) },
             new Feature { Name = "Rim Lighting", Toggle = "_EnableRimLighting", Keyword = "_GLOSSYREFLECTIONS_OFF",
                 Neutral = P(("_RimBlendStrength", 0), ("_RimStrength", 0)) },
             new Feature { Name = "Emission", Toggle = "_EnableEmission", Keyword = "_EMISSION",
-                Neutral = P(("_EmissionStrength", 0)) },
+                Neutral = P(("_EmissionStrength", 0), ("_EmissionReplace0", 0)) },
             new Feature { Name = "Decal 0", Toggle = "_DecalEnabled", Keyword = "GEOM_TYPE_BRANCH",
                 Neutral = P(("_DecalBlendAlpha", 0), ("_DecalEmissionStrength", 0), ("_DecalOverrideAlpha", 0)) },
             new Feature { Name = "Decal 1", Toggle = "_DecalEnabled1", Keyword = "POI_DECAL_1",
@@ -50,7 +52,7 @@ namespace TurboOptimizer
             new Feature { Name = "Decal 2", Toggle = "_DecalEnabled2", Keyword = "POI_DECAL_2",
                 Neutral = P(("_DecalBlendAlpha2", 0), ("_DecalEmissionStrength2", 0), ("_DecalOverrideAlpha2", 0)) },
             new Feature { Name = "Emission 2", Toggle = "_EnableEmission2", Keyword = "POI_EMISSION_2",
-                Neutral = P(("_EmissionStrength2", 0)) },
+                Neutral = P(("_EmissionStrength2", 0), ("_EmissionReplace2", 0)) },
             // своя нормаль матcapа: безопасно включить, только если сам матcap у материала выключен или «пустой»
             // (_Matcap3CustomNormal стоит в разделе _Matcap4 = «Matcap 3», _Matcap1CustomNormal — в разделе _Matcap2 = «Matcap 1»)
             new Feature { Name = "Matcap 3 Custom Normal", Toggle = "_Matcap3CustomNormal", Keyword = "POI_MATCAP3_CUSTOM_NORMAL",
@@ -74,13 +76,13 @@ namespace TurboOptimizer
             new Feature { Name = "Rim Lighting 2", Toggle = "_EnableRim2Lighting", Keyword = "POI_RIM2",
                 Neutral = P(("_Rim2BlendStrength", 0), ("_Rim2Strength", 0)) },
             new Feature { Name = "Anisotropics", Toggle = "_EnableAniso", Keyword = "POI_ANISOTROPICS",
-                Neutral = P(("_Aniso0Strength", 0), ("_Aniso1Strength", 0)) },
+                Neutral = P(("_Aniso0Strength", 0), ("_Aniso1Strength", 0), ("_AnisoReplace", 0), ("_AnisoAdd", 0)) },
             new Feature { Name = "Matcap 0", Toggle = "_MatcapEnable", Keyword = "POI_MATCAP0",
-                Neutral = P(("_MatcapIntensity", 0), ("_MatcapEmissionStrength", 0)) },
+                Neutral = P(("_MatcapReplace", 0), ("_MatcapMultiply", 0), ("_MatcapAdd", 0), ("_MatcapMixed", 0), ("_MatcapScreen", 0), ("_MatcapAddToLight", 0), ("_MatcapEmissionStrength", 0), ("_MatcapAlphaOverride", 0)) },
             new Feature { Name = "Matcap 3", Toggle = "_Matcap4Enable", Keyword = "POI_MATCAP3",
-                Neutral = P(("_Matcap4Intensity", 0), ("_Matcap4EmissionStrength", 0)) },
+                Neutral = P(("_Matcap4Replace", 0), ("_Matcap4Multiply", 0), ("_Matcap4Add", 0), ("_Matcap4Mixed", 0), ("_Matcap4Screen", 0), ("_Matcap4AddToLight", 0), ("_Matcap4EmissionStrength", 0), ("_Matcap4AlphaOverride", 0)) },
             new Feature { Name = "Emission 1", Toggle = "_EnableEmission1", Keyword = "POI_EMISSION_1",
-                Neutral = P(("_EmissionStrength1", 0)) },
+                Neutral = P(("_EmissionStrength1", 0), ("_EmissionReplace1", 0)) },
             new Feature { Name = "Glitter", Toggle = "_GlitterEnable", Keyword = "_SUNDISK_SIMPLE",
                 Neutral = P(("_GlitterBrightness", 0), ("_GlitterBlendType", 0)) },
             // Reflections & Specular (Mochie): при нулевой металличности, отражениях и бликах ничего не меняет
