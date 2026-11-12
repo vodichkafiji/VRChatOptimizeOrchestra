@@ -411,11 +411,11 @@ namespace TurboOptimizer
                 Step("physbones", () =>
                 {
                     EditorUtility.DisplayProgressBar(Brand.Name, L.T("Физбоны…", "PhysBones…"), 0.6f);
-                    var plan = PhysBonePlanner.Plan(_avatar, _target, new PbOptions());
+                    var plan = PhysBonePlanner.Plan(_avatar, _target, new PbOptions { Conservative = _anyCost });
                     if (_anyCost && plan.Achieved > _target && plan.SuggestDrop.Count > 0)
                     {
                         // любой ценой: выключаем физику вещей, которые планировщик выбрал как наименее заметные
-                        var opt = new PbOptions();
+                        var opt = new PbOptions { Conservative = true };
                         opt.DropItems.UnionWith(plan.SuggestDrop);
                         plan = PhysBonePlanner.Plan(_avatar, _target, opt);
                         _changes.Add(L.T("Выключена физика: ", "Physics turned off: ") + string.Join(", ", opt.DropItems) + ".");

@@ -12,6 +12,8 @@ namespace TurboOptimizer
         public bool TrimTips = true;        // делать жёсткими кончики длинных цепочек
         public bool DropColliders = true;   // убирать коллайдеры у самых «дорогих» цепочек
         public HashSet<string> DropItems = new HashSet<string>(); // вещи, чью физику игрок отключил
+        // считать все кости цепочки, а не только с весами: AAO убирает «пустые» концы не всегда (Hecate: прогноз 51, по факту 182)
+        public bool Conservative;
     }
 
     public class PbLimits
@@ -127,6 +129,7 @@ namespace TurboOptimizer
         public static PbPlan Plan(GameObject avatar, Rank target, PbOptions opt)
         {
             var all = PhysBoneScan.Scan(avatar);
+            if (opt.Conservative) foreach (var p in all) p.Effective = new HashSet<Transform>(p.Affected);
             var ctx = new Ctx { Weighted = PhysBoneScan.WeightedBones(avatar), Opt = opt };
             var plan = new PbPlan { All = all, Target = target, Limits = PbLimits.For(target) };
             // физбоны без костей с весами ничего видимого не двигают. AAO убирает их не всегда (проверено на Full SPS),

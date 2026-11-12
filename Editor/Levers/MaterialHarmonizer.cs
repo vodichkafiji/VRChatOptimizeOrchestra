@@ -247,22 +247,8 @@ namespace TurboOptimizer
             }
             var mats = copyOf.Values.Distinct().ToList();
 
-            if (aggressive)
-            {
-                // старые версии Poiyomi (Old Versions/…) → текущая: иначе две версии шейдера не склеятся друг с другом
-                var current = Shader.Find(".poiyomi/Poiyomi Toon");
-                var old = mats.Where(m => m.shader.name.StartsWith(".poiyomi/Old Versions/") && m.shader.name.EndsWith("/Poiyomi Toon")).ToList();
-                if (current != null && old.Count > 0)
-                {
-                    foreach (var m in old)
-                    {
-                        int rqOld = m.renderQueue; var kws = m.shaderKeywords;
-                        m.shader = current;
-                        m.renderQueue = rqOld; m.shaderKeywords = kws;
-                    }
-                    log.Add(L.T($"+ Poiyomi старой версии → {current.name}: ", $"+ Old Poiyomi → {current.name}: ") + string.Join(", ", old.Select(m => m.name)));
-                }
-            }
+            // Перевод старых версий Poiyomi (9.3) на текущую пробовали — кожа на Hecate стала чёрной: настройки версий
+            // не совпадают по смыслу. Версии шейдера не смешиваем.
 
             // 3. очередь рендера: непрозрачным и cutout (без смешивания) ставим общую
             int rq = 0;
