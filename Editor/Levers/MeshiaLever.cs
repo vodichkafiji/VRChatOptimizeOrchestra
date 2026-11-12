@@ -69,10 +69,12 @@ namespace TurboOptimizer
             {
                 var e = map[r];
                 int tris = AvatarUtil.Triangles(AvatarUtil.GetMesh(r));
-                if (tris < KeepSmallerThan || AvatarUtil.IsPenetrator(r))
+                // меш лица не упрощаем совсем: мимика (блендшейпы) ломается даже при лёгком упрощении (проверено на Mishi)
+                if (tris < KeepSmallerThan || AvatarUtil.IsPenetrator(r) || r == face)
                 {
                     fEnabled.SetValue(e, false); fTarget.SetValue(e, tris); left -= tris;
                     if (AvatarUtil.IsPenetrator(r)) log.Add($"  {r.name}: SPS/DPS, {L.T("не упрощается", "not simplified")}");
+                    if (r == face) log.Add($"  {r.name}: {L.T("лицо, не упрощается", "face, not simplified")}");
                 }
                 else adjustable.Add((e, r, tris));
             }
