@@ -98,7 +98,11 @@ Built on top of the great work of [anatawa12 (AAO)](https://github.com/anatawa12
 ### Что нужно
 
 - Unity **2022.3** и **VRChat SDK – Avatars 3.10+** (обычный проект из VRChat Creator Companion)
-- В проекте должны стоять (всё бесплатно, VCC → *Manage Project*): NDMF 1.14+, Avatar Optimizer (AAO) 1.9+, d4rkAvatarOptimizer 4.7+, Meshia Mesh Simplification 3.3+, а VRCFury — если он есть на аватаре.
+  - [NDMF](https://github.com/bdunderscore/ndmf) 1.14+
+  - [Avatar Optimizer (AAO)](https://vpm.anatawa12.com/avatar-optimizer/en/) 1.9+
+  - [d4rkAvatarOptimizer](https://github.com/d4rkc0d3r/d4rkAvatarOptimizer) 4.7+
+  - [Meshia Mesh Simplification](https://github.com/RamType0/Meshia.MeshSimplification) 3.3+
+  - [VRCFury](https://vrcfury.com) — only if your avatar uses it (SPS, toggles)
 
 В окне есть строка, где зелёным/красным видно, что установлено.
 
