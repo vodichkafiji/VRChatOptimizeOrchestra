@@ -194,6 +194,27 @@
           },
           "zipSHA256": "35982ff9f93a717dc7bbb21eb4f686fa643434d0a1d6b742d5d11c8ce60cfd2e",
           "repo": "https://vodichkafiji.github.io/VRChatOptimizeOrchestra/vpm.json"
+        },
+        "0.4.3": {
+          "name": "dev.turbooptimizer",
+          "displayName": "fiji's Optimize Orchestra",
+          "version": "0.4.3",
+          "unity": "2022.3",
+          "description": "Brings a VRChat avatar to Medium or Good by orchestrating AAO, d4rkAvatarOptimizer, Meshia and VRCFury. Easy and PRO modes, English and Russian UI.",
+          "author": {
+            "name": "fiji",
+            "url": "https://github.com/vodichkafiji"
+          },
+          "url": "https://vodichkafiji.github.io/VRChatOptimizeOrchestra/packages/dev.turbooptimizer-0.4.3.zip",
+          "vpmDependencies": {
+            "com.vrchat.avatars": ">=3.10.0",
+            "nadena.dev.ndmf": ">=1.14.0",
+            "com.anatawa12.avatar-optimizer": ">=1.9.0",
+            "com.ramtype0.meshia.mesh-simplification": ">=3.3.0",
+            "d4rkpl4y3r.d4rkavataroptimizer": ">=4.7.0"
+          },
+          "zipSHA256": "6c1ead5cb0e68f1a0e6f008dc6b9a7a8e88108f3402e79cd09427cacc4871325",
+          "repo": "https://vodichkafiji.github.io/VRChatOptimizeOrchestra/vpm.json"
         }
       }
     }
