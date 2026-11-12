@@ -1,7 +1,5 @@
 # fiji's Optimize Orchestra ✩✩✩
 
-[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/vodichkafiji)
-
 **English** · [Русский](#русский)
 
 A Unity editor tool that brings a VRChat avatar to **Medium** or **Good** performance rank — without you having to understand how AAO, d4rkAvatarOptimizer, Meshia and VRCFury work. It's an orchestra conductor for optimizers: it checks the avatar, decides which tool to apply and how hard, and shows the real rank you'll get in game.
@@ -18,14 +16,21 @@ A Unity editor tool that brings a VRChat avatar to **Medium** or **Good** perfor
 ## Requirements
 
 - Unity **2022.3** with **VRChat SDK – Avatars 3.10+** (a normal VRChat Creator Companion project)
-- These packages in the project (all free, add them in VCC → *Manage Project*):
-- [NDMF](https://github.com/bdunderscore/ndmf) 1.14+
-- [Avatar Optimizer (AAO)](https://vpm.anatawa12.com/avatar-optimizer/en/) 1.9+
-- [d4rkAvatarOptimizer](https://github.com/d4rkc0d3r/d4rkAvatarOptimizer) 4.7+
-- [Meshia Mesh Simplification](https://github.com/RamType0/Meshia.MeshSimplification) 3.3+
-- [VRCFury](https://vrcfury.com) — only if your avatar uses it (SPS, toggles)
+- These packages in the project (all free):
 
-The window shows a green/red line with which of these are installed.
+| Tool | Version | Add to VCC (one click) | Repository URL (manual) |
+|---|---|---|---|
+| [NDMF](https://github.com/bdunderscore/ndmf) | 1.14+ | [**Add to VCC**](https://vodichkafiji.github.io/VRChatOptimizeOrchestra/add/ndmf.html) | `https://vpm.nadena.dev/vpm.json` |
+| [Avatar Optimizer (AAO)](https://vpm.anatawa12.com/avatar-optimizer/en/) | 1.9+ | [**Add to VCC**](https://vodichkafiji.github.io/VRChatOptimizeOrchestra/add/aao.html) | `https://vpm.anatawa12.com/vpm.json` |
+| [d4rkAvatarOptimizer](https://github.com/d4rkc0d3r/d4rkAvatarOptimizer) | 4.7+ | [**Add to VCC**](https://vodichkafiji.github.io/VRChatOptimizeOrchestra/add/d4rk.html) | `https://d4rkc0d3r.github.io/vpm-repos/main.json` |
+| [Meshia Mesh Simplification](https://github.com/RamType0/Meshia.MeshSimplification) | 3.3+ | [**Add to VCC**](https://vodichkafiji.github.io/VRChatOptimizeOrchestra/add/meshia.html) | `https://RamType0.github.io/VpmRepository/index.json` |
+| [VRCFury](https://vrcfury.com) — only if the avatar uses it | any | [**Add to VCC**](https://vodichkafiji.github.io/VRChatOptimizeOrchestra/add/vrcfury.html) | `https://vcc.vrcfury.com` |
+
+All links on one page: **[vodichkafiji.github.io/VRChatOptimizeOrchestra](https://vodichkafiji.github.io/VRChatOptimizeOrchestra/)**
+
+How: press **Add to VCC** → VCC opens → confirm *I understand, Add Repository*. Then in VCC open your project → *Manage Project* → press **+** next to each package. (Manual way: VCC → *Settings → Packages → Add Repository* → paste the URL.)
+
+The plugin window shows a green/red line with which of these are installed.
 
 ## Installation
 
@@ -98,11 +103,19 @@ Built on top of the great work of [anatawa12 (AAO)](https://github.com/anatawa12
 ### Что нужно
 
 - Unity **2022.3** и **VRChat SDK – Avatars 3.10+** (обычный проект из VRChat Creator Companion)
-- [NDMF](https://github.com/bdunderscore/ndmf) 1.14+
-- [Avatar Optimizer (AAO)](https://vpm.anatawa12.com/avatar-optimizer/en/) 1.9+
-- [d4rkAvatarOptimizer](https://github.com/d4rkc0d3r/d4rkAvatarOptimizer) 4.7+
-- [Meshia Mesh Simplification](https://github.com/RamType0/Meshia.MeshSimplification) 3.3+
-- [VRCFury](https://vrcfury.com) — only if your avatar uses it (SPS, toggles)
+- В проекте должны стоять (всё бесплатно):
+
+| Инструмент | Версия | Добавить в VCC (в один клик) |
+|---|---|---|
+| NDMF | 1.14+ | [**Добавить в VCC**](https://vodichkafiji.github.io/VRChatOptimizeOrchestra/add/ndmf.html) |
+| Avatar Optimizer (AAO) | 1.9+ | [**Добавить в VCC**](https://vodichkafiji.github.io/VRChatOptimizeOrchestra/add/aao.html) |
+| d4rkAvatarOptimizer | 4.7+ | [**Добавить в VCC**](https://vodichkafiji.github.io/VRChatOptimizeOrchestra/add/d4rk.html) |
+| Meshia Mesh Simplification | 3.3+ | [**Добавить в VCC**](https://vodichkafiji.github.io/VRChatOptimizeOrchestra/add/meshia.html) |
+| VRCFury — если он есть на аватаре | любая | [**Добавить в VCC**](https://vodichkafiji.github.io/VRChatOptimizeOrchestra/add/vrcfury.html) |
+
+Все ссылки на одной странице: **[vodichkafiji.github.io/VRChatOptimizeOrchestra](https://vodichkafiji.github.io/VRChatOptimizeOrchestra/)**
+
+Как: жмёшь **Добавить в VCC** → открывается VCC → подтверждаешь *I understand, Add Repository*. Потом в VCC открываешь проект → *Manage Project* → жмёшь **+** у каждого пакета. (Вручную: VCC → *Settings → Packages → Add Repository* → вставить адрес из английской таблицы выше.)
 
 В окне есть строка, где зелёным/красным видно, что установлено.
 
