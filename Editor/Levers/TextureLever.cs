@@ -98,6 +98,24 @@ namespace TurboOptimizer
                     var lp = prop.ToLowerInvariant();
                     bool normal = lp.Contains("bump") || lp.Contains("normal") || items.Any(x => x.ti.textureType == TextureImporterType.NormalMap);
                     var src = items.Select(x => { x.ti.GetSourceTextureWidthAndHeight(out int w, out int h); return (x.path, x.ti, w, h); }).ToList();
+                    // формат — общий для всего свойства (иначе DXT1/DXT5 разойдутся между подгруппами)
+                    bool alphaAll = !normal && src.Any(x => x.ti.DoesSourceTextureHaveAlpha() && x.ti.alphaSource != TextureImporterAlphaSource.None);
+                    var fmtAll = normal || alphaAll ? TextureImporterFormat.DXT5 : TextureImporterFormat.DXT1;
+                    foreach (var x in src)
+                    {
+                        // нормали — всегда тип Normal map (иначе «different color spaces»), даже если размер не совпадёт
+                        var ps0 = x.ti.GetPlatformTextureSettings("Standalone");
+                        bool typeFix0 = normal && x.ti.textureType != TextureImporterType.NormalMap;
+                        if (!typeFix0 && ps0.overridden && ps0.format == fmtAll) continue;
+                        if (!backup.TryGetValue(x.path, out var b0)) backup[x.path] = $"{ps0.overridden}|{ps0.maxTextureSize}|{(int)ps0.format}|{(int)x.ti.textureType}";
+                        else if (b0.Split('|').Length == 3) backup[x.path] = b0 + "|" + (int)x.ti.textureType;
+                        if (!ps0.overridden) { ps0.overridden = true; ps0.maxTextureSize = x.ti.maxTextureSize; }
+                        ps0.format = fmtAll;
+                        x.ti.SetPlatformTextureSettings(ps0);
+                        if (typeFix0) x.ti.textureType = TextureImporterType.NormalMap;
+                        x.ti.SaveAndReimport();
+                        changed++;
+                    }
                     foreach (var byAspect in src.GroupBy(x => Mathf.RoundToInt(100f * x.w / Mathf.Max(1, x.h))))
                     {
                         var list = byAspect.ToList();
@@ -111,8 +129,7 @@ namespace TurboOptimizer
                             if (c > bestCount) { best = size; bestCount = c; }
                         }
                         if (bestCount < 2) continue;
-                        bool alpha = !normal && list.Any(x => x.ti.DoesSourceTextureHaveAlpha() && x.ti.alphaSource != TextureImporterAlphaSource.None);
-                        var fmt = normal || alpha ? TextureImporterFormat.DXT5 : TextureImporterFormat.DXT1;
+                        var fmt = fmtAll;
                         foreach (var x in list.Where(x => Mathf.Max(x.w, x.h) >= best))
                         {
                             var ps = x.ti.GetPlatformTextureSettings("Standalone");

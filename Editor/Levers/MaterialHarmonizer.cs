@@ -86,7 +86,13 @@ namespace TurboOptimizer
             // Reflections & Specular (Mochie): при нулевой металличности, отражениях и бликах ничего не меняет
             new Feature { Name = "Reflections & Specular", Toggle = "_MochieBRDF", Keyword = "MOCHIE_PBR",
                 Neutral = P(("_MochieReflectionStrength", 0), ("_MochieSpecularStrength", 0), ("_MochieMetallicMultiplier", 0)) },
+            new Feature { Name = "CubeMap", Toggle = "_CubeMapEnabled", Keyword = "_CUBEMAP",
+                Neutral = P(("_CubeMapBlendAmount", 0), ("_CubeMapEmissionStrength", 0)) },
         };
+
+        // Кубмапы, которые видны только при работающей функции: у «пустых» материалов группы ставим тот же кубмап,
+        // что у «живых» (или убираем), чтобы d4rk не спотыкался о разные кубмапы.
+        static readonly (string prop, string feature)[] FeatureCubes = { ("_MochieReflCube", "Reflections & Specular"), ("_CubeMap", "CubeMap") };
 
         // Режимы освещения Poiyomi (KeywordEnum _LightingMode)
         static readonly string[] LightingModes = { "TEXTURERAMP", "MULTILAYER_MATH", "WRAPPED", "SKIN", "SHADEMAP", "FLAT", "REALISTIC", "CLOTH", "SDF" };
@@ -148,8 +154,14 @@ namespace TurboOptimizer
                 if (!animByOrig.TryGetValue(s0.m, out var set0)) animByOrig[s0.m] = set0 = new HashSet<string>();
                 set0.UnionWith(props0);
             }
-            bool AnimationsSurviveUnlock(Material m, Shader original) =>
-                !animByOrig.TryGetValue(m, out var props1) || props1.All(pr => original.FindPropertyIndex(pr) >= 0);
+            var blockedBy = new Dictionary<Material, List<string>>();
+            bool AnimationsSurviveUnlock(Material m, Shader original)
+            {
+                if (!animByOrig.TryGetValue(m, out var props1)) return true;
+                var missing = props1.Where(pr => original.FindPropertyIndex(pr) < 0).ToList();
+                if (missing.Count > 0) blockedBy[m] = missing;
+                return missing.Count == 0;
+            }
             bool unlockAvailable = ThryUnlock != null;
             bool Candidate(Material m)
             {
@@ -163,6 +175,8 @@ namespace TurboOptimizer
             var mats0 = slots.Select(s => s.m).Distinct().Where(Candidate).ToList();
             var skipped = slots.Select(s => s.m).Distinct().Where(m => !Candidate(m)).Select(m => m.name).ToList();
             if (skipped.Count > 0) log.Add(L.T("= не трогаю (Lock с анимацией, подмена анимацией или другой шейдер): ", "= skipped (locked with animations, swapped by animation or other shader): ") + string.Join(", ", skipped));
+            foreach (var kv in blockedBy)
+                log.Add($"  {kv.Key.name}: {L.T("Lock не снять — анимации меняют", "can't unlock — animations change")} {string.Join(", ", kv.Value.Take(8))}{(kv.Value.Count > 8 ? " …" : "")}");
 
             // 2. копии материалов
             Directory.CreateDirectory(FolderOf(avatar));
@@ -232,6 +246,23 @@ namespace TurboOptimizer
                 PrefabUtility.RecordPrefabInstancePropertyModifications(s.r);
             }
             var mats = copyOf.Values.Distinct().ToList();
+
+            if (aggressive)
+            {
+                // старые версии Poiyomi (Old Versions/…) → текущая: иначе две версии шейдера не склеятся друг с другом
+                var current = Shader.Find(".poiyomi/Poiyomi Toon");
+                var old = mats.Where(m => m.shader.name.StartsWith(".poiyomi/Old Versions/") && m.shader.name.EndsWith("/Poiyomi Toon")).ToList();
+                if (current != null && old.Count > 0)
+                {
+                    foreach (var m in old)
+                    {
+                        int rqOld = m.renderQueue; var kws = m.shaderKeywords;
+                        m.shader = current;
+                        m.renderQueue = rqOld; m.shaderKeywords = kws;
+                    }
+                    log.Add(L.T($"+ Poiyomi старой версии → {current.name}: ", $"+ Old Poiyomi → {current.name}: ") + string.Join(", ", old.Select(m => m.name)));
+                }
+            }
 
             // 3. очередь рендера: непрозрачным и cutout (без смешивания) ставим общую
             int rq = 0;
@@ -312,8 +343,26 @@ namespace TurboOptimizer
                     log.Add(L.T($"  {f.Name}: включено с нулевой силой у {lacking.Count} материалов группы «{g.Key}»", $"  {f.Name}: enabled at zero strength on {lacking.Count} materials of group «{g.Key}»"));
                 }
             }
+            foreach (var g in mats.GroupBy(GroupKey).Where(g => g.Count() > 1))
+                foreach (var (prop, featName) in FeatureCubes)
+                {
+                    var f = Features.First(x => x.Name == featName);
+                    var live = g.Where(m => m.HasProperty(prop) && IsOn(m, f) && !IsNeutral(m, f)).Select(m => m.GetTexture(prop)).Distinct().ToList();
+                    if (live.Count > 1) continue; // у «живых» разные кубмапы — тут ничего не сделать без изменения вида
+                    var cube = live.FirstOrDefault();
+                    int n = 0;
+                    foreach (var m in g.Where(m => m.HasProperty(prop) && (!IsOn(m, f) || IsNeutral(m, f)) && m.GetTexture(prop) != cube)) { m.SetTexture(prop, cube); n++; }
+                    if (n > 0) log.Add($"  {prop}: {L.T("общий кубмап у", "same cubemap on")} {n} {L.T("материалов группы", "materials of group")} «{g.Key}»");
+                }
+
             if (aggressive)
             {
+                // у непрозрачных материалов операция смешивания альфы ни на что не влияет — ставим общую
+                foreach (var g in mats.Where(m => m.HasProperty("_BlendOpAlpha") && Opaque(m)).GroupBy(GroupKey))
+                {
+                    var op = g.GroupBy(m => m.GetFloat("_BlendOpAlpha")).OrderByDescending(x => x.Count()).First().Key;
+                    foreach (var m in g) m.SetFloat("_BlendOpAlpha", op);
+                }
                 // общий режим освещения в группе — самый частый (вид теней может измениться)
                 foreach (var g in mats.Where(m => m.HasProperty("_LightingMode")).GroupBy(GroupKey))
                 {
