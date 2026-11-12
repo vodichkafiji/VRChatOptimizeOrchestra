@@ -30,21 +30,33 @@ A Unity editor tool that brings a VRChat avatar to **Medium** or **Good** perfor
 
 All links on one page: **[vodichkafiji.github.io/VRChatOptimizeOrchestra](https://vodichkafiji.github.io/VRChatOptimizeOrchestra/)**
 
-How: press **Add to VCC** → VCC opens → confirm *I understand, Add Repository*. Then in VCC open your project → *Manage Project* → press **+** next to each package. (Manual way: VCC → *Settings → Packages → Add Repository* → paste the URL.)
-
 The plugin window shows a green/red line with which of these are installed.
 
 ## Installation
 
-**Option A — Package Manager (git URL)**
+**Option A — VCC (recommended, no Git needed)**
+
+1. Add the plugin's repository: [**Add to VCC**](https://vodichkafiji.github.io/VRChatOptimizeOrchestra/add/orchestra.html) → VCC opens → confirm *I understand, Add Repository*.
+2. Add the repository of every tool from the table above the same way (**Add to VCC** in each row).
+3. In VCC open your project → *Manage Project* → press **+** next to **fiji's Optimize Orchestra**. NDMF, AAO, d4rk and Meshia are installed with it.
+
+Manual way: VCC → *Settings → Packages → Add Repository* → paste `https://vodichkafiji.github.io/VRChatOptimizeOrchestra/vpm.json` (and the tool addresses from the table).
+
+> The `.json` addresses are for **VCC only** — Unity's Package Manager can't use them.
+
+**Option B — Unity Package Manager (git URL)**
+
+Needs [Git](https://git-scm.com/download/win) installed on the computer (restart Unity after installing it) and the tools from the table already in the project.
 
 1. In Unity: *Window → Package Manager → + → Add package from git URL…*
 2. Paste `https://github.com/vodichkafiji/VRChatOptimizeOrchestra.git` and press *Add*.
 
-**Option B — download**
+**Option C — download**
 
 1. *Code → Download ZIP* on this page.
 2. Unpack it into your project's `Packages` folder, so you get `Packages/VRChatOptimizeOrchestra/package.json`.
+
+> Install only one way. If the plugin is already in the project, adding it again fails.
 
 Then open **Tools → fiji's Optimize Orchestra**.
 
@@ -119,21 +131,33 @@ Built on top of the great work of [anatawa12 (AAO)](https://github.com/anatawa12
 
 Все ссылки на одной странице: **[vodichkafiji.github.io/VRChatOptimizeOrchestra](https://vodichkafiji.github.io/VRChatOptimizeOrchestra/)**
 
-Как: нажми **Добавить в VCC** → откроется VCC → подтверди *I understand, Add Repository*. Потом в VCC открой проект → *Manage Project* → нажми **+** у каждого пакета. (Вручную: VCC → *Settings → Packages → Add Repository* → вставь адрес.)
-
 В окне плагина есть строка, где зелёным/красным видно, что из этого установлено.
 
 ## Установка
 
-**Вариант А — Package Manager (git URL)**
+**Вариант А — VCC (рекомендуется, Git не нужен)**
+
+1. Добавь репозиторий плагина: [**Добавить в VCC**](https://vodichkafiji.github.io/VRChatOptimizeOrchestra/add/orchestra.html) → откроется VCC → подтверди *I understand, Add Repository*.
+2. Так же добавь репозиторий каждого инструмента из таблицы выше (**Добавить в VCC** в каждой строке).
+3. В VCC открой проект → *Manage Project* → нажми **+** у **fiji's Optimize Orchestra**. NDMF, AAO, d4rk и Meshia установятся вместе с ним.
+
+Вручную: VCC → *Settings → Packages → Add Repository* → вставь `https://vodichkafiji.github.io/VRChatOptimizeOrchestra/vpm.json` (и адреса инструментов из таблицы).
+
+> Адреса `.json` — **только для VCC**, Package Manager в Unity их не понимает.
+
+**Вариант Б — Unity Package Manager (git URL)**
+
+Нужен установленный на компьютере [Git](https://git-scm.com/download/win) (после установки перезапусти Unity) и инструменты из таблицы уже в проекте.
 
 1. В Unity: *Window → Package Manager → + → Add package from git URL…*
 2. Вставь `https://github.com/vodichkafiji/VRChatOptimizeOrchestra.git` и нажми *Add*.
 
-**Вариант Б — скачать**
+**Вариант В — скачать**
 
 1. На этой странице *Code → Download ZIP*.
 2. Распакуй в папку `Packages` своего проекта, чтобы получилось `Packages/VRChatOptimizeOrchestra/package.json`.
+
+> Ставь только одним способом. Если плагин уже есть в проекте, повторное добавление выдаст ошибку.
 
 Потом открой **Tools → fiji's Optimize Orchestra**.
 
