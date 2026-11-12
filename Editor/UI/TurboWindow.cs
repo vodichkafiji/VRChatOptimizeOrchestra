@@ -78,6 +78,7 @@ namespace TurboOptimizer
                 default: DrawHelp(); break;
             }
             DrawLog();
+            DrawReportLink();
             EditorGUILayout.Space(10);
             EditorGUILayout.EndScrollView();
         }
@@ -223,6 +224,20 @@ namespace TurboOptimizer
             if (!_showLog && _tab != 1) return;
             foreach (var l in _log) GUILayout.Label(l, Styles.Small);
         }
+
+        // Строка «где отчёт» внизу окна: путь и кнопка, открывающая папку с выделенным файлом.
+        void DrawReportLink()
+        {
+            if (!File.Exists(ReportPath)) return;
+            EditorGUILayout.Space(6);
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                GUILayout.Label(L.T("Отчёт: ", "Report: ") + ReportPath, Styles.Small);
+                if (GUILayout.Button(L.T("Показать в папке", "Show in folder"), GUILayout.Width(140))) EditorUtility.RevealInFinder(ReportPath);
+            }
+        }
+
+        static string ReportPath => Path.GetFullPath(Path.Combine(Application.dataPath, "..", "TurboOptimizerReport.txt"));
 
         // ---------- проверка ранга ----------
         void Diagnose()
@@ -443,9 +458,10 @@ namespace TurboOptimizer
                     foreach (var i in _items.OrderByDescending(i => i.Cost.Sum(kv => kv.Value / ItemScan.Scale(kv.Key))))
                         items.AppendLine($"  {(i.Removed ? "[убрано] " : "")}{(i.Protected ? "[основа] " : "")}{i.Name} ({i.KindText}{(i.InMenu ? ", в меню" : "")}{(i.HiddenByDefault ? ", скрыто" : "")}): {i.CostText()}");
                 var text = $"Avatar: {_avatar.name}\nРежим: {(_tab == 0 ? "простой" : "ПРО")}, язык {(L.En ? "en" : "ru")}\n{_report?.Error}\n{_report?.ToText(_target)}\nЧто изменилось:\n{string.Join("\n", _changes)}\n\nВещи:\n{items}\nSPS и контакты в окне:\n{sps}\nPhysBone plan:\n{_pbPlanText}\nLog:\n{string.Join("\n", _log)}";
-                File.WriteAllText("TurboOptimizerReport.txt", text);
+                File.WriteAllText(ReportPath, text);
+                Debug.Log($"[{Brand.Short}] " + L.T("отчёт сохранён: ", "report saved: ") + ReportPath);
             }
-            catch { }
+            catch (Exception e) { Debug.LogWarning($"[{Brand.Short}] " + L.T("не удалось сохранить отчёт: ", "couldn't save the report: ") + e.Message); }
         }
     }
 }
