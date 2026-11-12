@@ -15,6 +15,8 @@ namespace TurboOptimizer
         public const string HolderName = "TurboOptimizer Mesh Budget";
         const float FaceShare = 0.30f;     // доля бюджета для меша лица/тела
         const int KeepSmallerThan = 1500;  // мелкие меши не трогаем
+        const float FaceKeep = 0.80f;      // меш лица/тела: не меньше 80% треугольников (иначе ломаются лицо и шейпы)
+        const float MinKeep = 0.45f;       // остальные меши: не меньше 45%
 
         public static int CurrentTriangles(GameObject avatar) =>
             AvatarUtil.MeshRenderers(avatar).Sum(r => AvatarUtil.Triangles(AvatarUtil.GetMesh(r)));
@@ -75,27 +77,18 @@ namespace TurboOptimizer
                 else adjustable.Add((e, r, tris));
             }
 
+            // Пределы «без порчи вида»: меш лица (часто это и всё тело) ужимаем не сильнее чем до FaceKeep,
+            // остальные — не сильнее чем до MinKeep. Если так в бюджет не влезть — не ломаем, а просим убрать вещи.
             var targets = new Dictionary<object, int>();
             var faceItem = adjustable.FirstOrDefault(x => x.r == face);
             if (faceItem.e != null)
             {
-                int f = Mathf.Min(faceItem.tris, Mathf.RoundToInt(budget * FaceShare));
+                int f = Mathf.Min(faceItem.tris, Mathf.Max(Mathf.CeilToInt(faceItem.tris * FaceKeep), Mathf.RoundToInt(budget * FaceShare)));
                 targets[faceItem.e] = f; left -= f; adjustable.Remove(faceItem);
             }
-            // пропорционально, с ограничением исходным числом и перераспределением излишка
-            var open = adjustable.ToList();
-            for (int it = 0; it < 10 && open.Count > 0; it++)
-            {
-                long sum = open.Sum(x => (long)x.tris);
-                float ratio = Mathf.Max(0, left) / (float)sum;
-                var capped = open.Where(x => ratio >= 1f).ToList();
-                if (capped.Count == 0)
-                {
-                    foreach (var x in open) targets[x.e] = Mathf.Max(64, Mathf.FloorToInt(x.tris * ratio));
-                    break;
-                }
-                foreach (var x in capped) { targets[x.e] = x.tris; left -= x.tris; open.Remove(x); }
-            }
+            long rest = adjustable.Sum(x => (long)x.tris);
+            float ratio = rest > 0 ? Mathf.Clamp(Mathf.Max(0, left) / (float)rest, MinKeep, 1f) : 1f;
+            foreach (var x in adjustable) targets[x.e] = Mathf.Max(64, Mathf.FloorToInt(x.tris * ratio));
             foreach (var kv in targets) { fEnabled.SetValue(kv.Key, true); fFixed.SetValue(kv.Key, false); fTarget.SetValue(kv.Key, kv.Value); }
 
             int result = 0;
@@ -107,6 +100,9 @@ namespace TurboOptimizer
             }
             EditorUtility.SetDirty(comp);
             log.Add(L.T($"+ Meshia: треугольники {total} → ~{result} (бюджет {budget}, лицу {FaceShare:P0})", $"+ Meshia: triangles {total} → ~{result} (budget {budget}, face {FaceShare:P0})"));
+            if (result > budget)
+                log.Add(L.T($"! Полигоны: без порчи вида можно ужать только до ~{result} (лимит {budget}). Остальное — убрать вещи, совет появится после проверки.",
+                            $"! Polygons: without spoiling the look they can only go down to ~{result} (limit {budget}). Remove items for the rest — advice appears after the check."));
         }
     }
 }
