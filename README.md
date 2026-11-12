@@ -19,11 +19,11 @@ A Unity editor tool that brings a VRChat avatar to **Medium** or **Good** perfor
 
 - Unity **2022.3** with **VRChat SDK – Avatars 3.10+** (a normal VRChat Creator Companion project)
 - These packages in the project (all free, add them in VCC → *Manage Project*):
-  - [NDMF](https://github.com/bdunderscore/ndmf) 1.14+
-  - [Avatar Optimizer (AAO)](https://vpm.anatawa12.com/avatar-optimizer/en/) 1.9+
-  - [d4rkAvatarOptimizer](https://github.com/d4rkc0d3r/d4rkAvatarOptimizer) 4.7+
-  - [Meshia Mesh Simplification](https://github.com/RamType0/Meshia.MeshSimplification) 3.3+
-  - [VRCFury](https://vrcfury.com) — only if your avatar uses it (SPS, toggles)
+- [NDMF](https://github.com/bdunderscore/ndmf) 1.14+
+- [Avatar Optimizer (AAO)](https://vpm.anatawa12.com/avatar-optimizer/en/) 1.9+
+- [d4rkAvatarOptimizer](https://github.com/d4rkc0d3r/d4rkAvatarOptimizer) 4.7+
+- [Meshia Mesh Simplification](https://github.com/RamType0/Meshia.MeshSimplification) 3.3+
+- [VRCFury](https://vrcfury.com) — only if your avatar uses it (SPS, toggles)
 
 The window shows a green/red line with which of these are installed.
 
@@ -98,11 +98,11 @@ Built on top of the great work of [anatawa12 (AAO)](https://github.com/anatawa12
 ### Что нужно
 
 - Unity **2022.3** и **VRChat SDK – Avatars 3.10+** (обычный проект из VRChat Creator Companion)
-  - [NDMF](https://github.com/bdunderscore/ndmf) 1.14+
-  - [Avatar Optimizer (AAO)](https://vpm.anatawa12.com/avatar-optimizer/en/) 1.9+
-  - [d4rkAvatarOptimizer](https://github.com/d4rkc0d3r/d4rkAvatarOptimizer) 4.7+
-  - [Meshia Mesh Simplification](https://github.com/RamType0/Meshia.MeshSimplification) 3.3+
-  - [VRCFury](https://vrcfury.com) — only if your avatar uses it (SPS, toggles)
+- [NDMF](https://github.com/bdunderscore/ndmf) 1.14+
+- [Avatar Optimizer (AAO)](https://vpm.anatawa12.com/avatar-optimizer/en/) 1.9+
+- [d4rkAvatarOptimizer](https://github.com/d4rkc0d3r/d4rkAvatarOptimizer) 4.7+
+- [Meshia Mesh Simplification](https://github.com/RamType0/Meshia.MeshSimplification) 3.3+
+- [VRCFury](https://vrcfury.com) — only if your avatar uses it (SPS, toggles)
 
 В окне есть строка, где зелёным/красным видно, что установлено.
 
