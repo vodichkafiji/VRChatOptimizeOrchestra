@@ -81,7 +81,7 @@ namespace TurboOptimizer
 
             // Одна общая доля для всех, но с пределами «без порчи вида»: лицо не меньше FaceKeep, остальные не меньше minKeep.
             // Если кто-то упёрся в свой предел, остальным достаётся меньше. Не влезает — не ломаем, а просим убрать вещи.
-            var targets = new Dictionary<object, int>();
+            var targets = new Dictionary<Renderer, int>(); // ключ — рендерер: записи Meshia — record, их хэш меняется при правке
             float Floor(Renderer r) => r == face ? FaceKeep : minKeep;
             var open = adjustable.ToList();
             int budgetLeft = left;
@@ -92,18 +92,18 @@ namespace TurboOptimizer
                 var floored = open.Where(x => ratio < Floor(x.r)).ToList();
                 if (floored.Count == 0 || it == 4)
                 {
-                    foreach (var x in open) targets[x.e] = Mathf.Max(64, Mathf.FloorToInt(x.tris * Mathf.Max(ratio, Floor(x.r))));
+                    foreach (var x in open) targets[x.r] = Mathf.Max(64, Mathf.FloorToInt(x.tris * Mathf.Max(ratio, Floor(x.r))));
                     break;
                 }
-                foreach (var x in floored) { int t = Mathf.CeilToInt(x.tris * Floor(x.r)); targets[x.e] = t; budgetLeft -= t; open.Remove(x); }
+                foreach (var x in floored) { int t = Mathf.CeilToInt(x.tris * Floor(x.r)); targets[x.r] = t; budgetLeft -= t; open.Remove(x); }
             }
             var faceEntry = adjustable.FirstOrDefault(x => x.r == face);
             if (faceEntry.e != null)
             {
                 ProtectFace(faceEntry.e, entryType);
-                log.Add($"  {face.name}: {L.T("лицо упрощается бережно", "face simplified gently")} ({faceEntry.tris} → {targets[faceEntry.e]}, {L.T("края глаз, рта и ресниц сохраняются", "eye, mouth and lash edges kept")})");
+                log.Add($"  {face.name}: {L.T("лицо упрощается бережно", "face simplified gently")} ({faceEntry.tris} → {targets[faceEntry.r]}, {L.T("края глаз, рта и ресниц сохраняются", "eye, mouth and lash edges kept")})");
             }
-            foreach (var kv in targets) { fEnabled.SetValue(kv.Key, true); fFixed.SetValue(kv.Key, false); fTarget.SetValue(kv.Key, kv.Value); }
+            foreach (var kv in targets) { var en = map[kv.Key]; fEnabled.SetValue(en, true); fFixed.SetValue(en, false); fTarget.SetValue(en, kv.Value); }
 
             int result = 0;
             foreach (var r in renderers)

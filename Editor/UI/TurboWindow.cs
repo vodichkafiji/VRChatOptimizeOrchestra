@@ -328,6 +328,13 @@ namespace TurboOptimizer
             if (nv != on) SetDrop(it, nv);
         }
 
+        // Один шаг оптимизации: ошибка в нём попадает в журнал, но не отменяет остальные шаги.
+        void Step(string name, Action a)
+        {
+            try { a(); }
+            catch (Exception e) { _log.Add($"! {name}: " + (e.InnerException ?? e).Message); Debug.LogException(e); }
+        }
+
         // ---------- всё за одну кнопку ----------
         // Каждый шаг идемпотентен, поэтому повторное нажатие безопасно.
         void Optimize()
@@ -354,58 +361,75 @@ namespace TurboOptimizer
             _changes.Clear();
             try
             {
-                EditorUtility.DisplayProgressBar(Brand.Name, L.T("Инструменты оптимизации…", "Optimization tools…"), 0.1f);
-                ToolLevers.AddTraceAndOptimize(_avatar, _log);
-                TextureLever.Apply(_avatar, _log);
-                var limit = Thresholds.Load(_target, false)?.Get("polyCount") ?? 70000;
-                MeshiaLever.Apply(_avatar, (int)(limit * 0.97), _log, _anyCost ? 0.30f : 0.45f, !_keepFace);
-                ToolLevers.AddD4rk(_avatar, _log);
-                _changes.Add(L.T("Меши и материалы склеиваются при загрузке, текстуры и полигоны уменьшены под цель. Вид почти не меняется.",
-                                 "Meshes and materials are merged on upload; textures and polygons are reduced for the target. The look barely changes."));
-
-                EditorUtility.DisplayProgressBar(Brand.Name, "SPS…", 0.3f);
-                if (sps)
+                Step("tools", () =>
                 {
-                    if (_spsOff) { SpsLever.DisableAll(_avatar, _log); _changes.Add(L.T("SPS выключен целиком.", "SPS is turned off completely.")); }
-                    else
+                    EditorUtility.DisplayProgressBar(Brand.Name, L.T("Инструменты оптимизации…", "Optimization tools…"), 0.1f);
+                    ToolLevers.AddTraceAndOptimize(_avatar, _log);
+                    TextureLever.Apply(_avatar, _log);
+                    ToolLevers.AddD4rk(_avatar, _log);
+                    Step("Meshia", () =>
                     {
-                        SpsLever.DisableLegacyLights(_avatar, _log);
-                        _changes.Add(L.T("Выключена старая совместимость SPS с DPS: пропал свет сокетов, SPS и TPS работают.",
-                                         "SPS legacy DPS compatibility is off: socket lights are gone, SPS and TPS still work."));
+                        var limit = Thresholds.Load(_target, false)?.Get("polyCount") ?? 70000;
+                        MeshiaLever.Apply(_avatar, (int)(limit * 0.97), _log, _anyCost ? 0.30f : 0.45f, !_keepFace);
+                    });
+                    _changes.Add(L.T("Меши и материалы склеиваются при загрузке, текстуры и полигоны уменьшены под цель. Вид почти не меняется.",
+                                     "Meshes and materials are merged on upload; textures and polygons are reduced for the target. The look barely changes."));
+                });
+
+                Step("SPS", () =>
+                {
+                    EditorUtility.DisplayProgressBar(Brand.Name, "SPS…", 0.3f);
+                    if (sps)
+                    {
+                        if (_spsOff) { SpsLever.DisableAll(_avatar, _log); _changes.Add(L.T("SPS выключен целиком.", "SPS is turned off completely.")); }
+                        else
+                        {
+                            SpsLever.DisableLegacyLights(_avatar, _log);
+                            _changes.Add(L.T("Выключена старая совместимость SPS с DPS: пропал свет сокетов, SPS и TPS работают.",
+                                             "SPS legacy DPS compatibility is off: socket lights are gone, SPS and TPS still work."));
+                        }
                     }
-                }
+                });
 
-                EditorUtility.DisplayProgressBar(Brand.Name, L.T("Вещи…", "Items…"), 0.4f);
-                foreach (var it in removing) ItemScan.Remove(_avatar, it, _log);
-                var removedNow = (_items ?? new List<AvatarItem>()).Where(i => i.Removed).Select(i => i.Name).Concat(removing.Select(i => i.Name)).Distinct().ToList();
-                if (removedNow.Count > 0) _changes.Add(L.T("Убрано с аватара: ", "Removed from the avatar: ") + string.Join(", ", removedNow) + ".");
-
-                EditorUtility.DisplayProgressBar(Brand.Name, L.T("Материалы…", "Materials…"), 0.5f);
-                MaterialHarmonizer.Apply(_avatar, _log, _unifyTransparent, _anyCost);
-                _changes.Add(_unifyTransparent
-                    ? L.T("Материалы выровнены для склейки, включая прозрачные — проверь, как лежат прозрачные слои.", "Materials aligned for merging, including transparent ones — check how transparent layers stack.")
-                    : L.T("Материалы выровнены для склейки (вид не меняется).", "Materials aligned for merging (the look doesn't change)."));
-
-                EditorUtility.DisplayProgressBar(Brand.Name, L.T("Физбоны…", "PhysBones…"), 0.6f);
-                var plan = PhysBonePlanner.Plan(_avatar, _target, new PbOptions());
-                if (_anyCost && plan.Achieved > _target && plan.SuggestDrop.Count > 0)
+                Step("items", () =>
                 {
-                    // любой ценой: выключаем физику вещей, которые планировщик выбрал как наименее заметные
-                    var opt = new PbOptions();
-                    opt.DropItems.UnionWith(plan.SuggestDrop);
-                    plan = PhysBonePlanner.Plan(_avatar, _target, opt);
-                    _changes.Add(L.T("Выключена физика: ", "Physics turned off: ") + string.Join(", ", opt.DropItems) + ".");
-                }
-                _pbPlanText = plan.ToText();
-                if (plan.Merges.Count > 0 || plan.Trims.Count > 0 || plan.DropColliders.Count > 0 || plan.Remove.Count > 0)
+                    EditorUtility.DisplayProgressBar(Brand.Name, L.T("Вещи…", "Items…"), 0.4f);
+                    foreach (var it in removing) ItemScan.Remove(_avatar, it, _log);
+                    var removedNow = (_items ?? new List<AvatarItem>()).Where(i => i.Removed).Select(i => i.Name).Concat(removing.Select(i => i.Name)).Distinct().ToList();
+                    if (removedNow.Count > 0) _changes.Add(L.T("Убрано с аватара: ", "Removed from the avatar: ") + string.Join(", ", removedNow) + ".");
+                });
+
+                Step("materials", () =>
                 {
-                    PhysBoneApply.Apply(_avatar, plan, _log);
-                    if (plan.Merges.Count > 0) _changes.Add(L.T($"Слиты похожие физбоны ({plan.Merges.Count} групп) — качаются так же.", $"Similar PhysBones merged ({plan.Merges.Count} groups) — they move the same."));
-                    if (plan.Trims.Count > 0) _changes.Add(L.T("Стали жёсткими кончики: ", "Tips became stiff: ") + string.Join(", ", plan.Trims.Select(kv => kv.Key.Name)) + ".");
-                    if (plan.DropColliders.Count > 0) _changes.Add(L.T("Больше не отталкиваются от тела (проходят сквозь): ", "No longer collide with the body (clip through): ") + string.Join(", ", plan.DropColliders.Select(p => p.Name)) + ".");
-                }
+                    EditorUtility.DisplayProgressBar(Brand.Name, L.T("Материалы…", "Materials…"), 0.5f);
+                    MaterialHarmonizer.Apply(_avatar, _log, _unifyTransparent, _anyCost);
+                    _changes.Add(_unifyTransparent
+                        ? L.T("Материалы выровнены для склейки, включая прозрачные — проверь, как лежат прозрачные слои.", "Materials aligned for merging, including transparent ones — check how transparent layers stack.")
+                        : L.T("Материалы выровнены для склейки (вид не меняется).", "Materials aligned for merging (the look doesn't change)."));
+                });
+
+                Step("physbones", () =>
+                {
+                    EditorUtility.DisplayProgressBar(Brand.Name, L.T("Физбоны…", "PhysBones…"), 0.6f);
+                    var plan = PhysBonePlanner.Plan(_avatar, _target, new PbOptions());
+                    if (_anyCost && plan.Achieved > _target && plan.SuggestDrop.Count > 0)
+                    {
+                        // любой ценой: выключаем физику вещей, которые планировщик выбрал как наименее заметные
+                        var opt = new PbOptions();
+                        opt.DropItems.UnionWith(plan.SuggestDrop);
+                        plan = PhysBonePlanner.Plan(_avatar, _target, opt);
+                        _changes.Add(L.T("Выключена физика: ", "Physics turned off: ") + string.Join(", ", opt.DropItems) + ".");
+                    }
+                    _pbPlanText = plan.ToText();
+                    if (plan.Merges.Count > 0 || plan.Trims.Count > 0 || plan.DropColliders.Count > 0 || plan.Remove.Count > 0)
+                    {
+                        PhysBoneApply.Apply(_avatar, plan, _log);
+                        if (plan.Merges.Count > 0) _changes.Add(L.T($"Слиты похожие физбоны ({plan.Merges.Count} групп) — качаются так же.", $"Similar PhysBones merged ({plan.Merges.Count} groups) — they move the same."));
+                        if (plan.Trims.Count > 0) _changes.Add(L.T("Стали жёсткими кончики: ", "Tips became stiff: ") + string.Join(", ", plan.Trims.Select(kv => kv.Key.Name)) + ".");
+                        if (plan.DropColliders.Count > 0) _changes.Add(L.T("Больше не отталкиваются от тела (проходят сквозь): ", "No longer collide with the body (clip through): ") + string.Join(", ", plan.DropColliders.Select(p => p.Name)) + ".");
+                    }
+                });
             }
-            catch (Exception e) { _log.Add("! " + e.Message); Debug.LogException(e); }
             finally { EditorUtility.ClearProgressBar(); }
 
             EditorSceneManager.MarkSceneDirty(_avatar.scene);
