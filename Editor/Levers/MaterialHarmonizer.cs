@@ -1,0 +1,391 @@
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using UnityEditor;
+using UnityEngine;
+
+namespace TurboOptimizer
+{
+    // Выравнивает материалы Poiyomi, чтобы d4rk смог их склеить, не меняя внешний вид:
+    // - функции, которые включены, но ничего не делают (сила 0), выключаются;
+    // - функции, которые есть у одних материалов группы, включаются у остальных с нулевой силой;
+    // - непрозрачным/cutout материалам ставится общая очередь рендера.
+    // Работает на КОПИЯХ материалов (Assets/TurboOptimizer/Materials/<аватар>), оригиналы не меняются.
+    public static class MaterialHarmonizer
+    {
+        class Feature
+        {
+            public string Toggle, Keyword, Name;
+            public string NeedsEmpty; // функция по наличию текстуры: включать с нулевой силой можно только без неё
+            public string OnlyIfNeutral; // под-настройка другой функции: включать, только если та выключена или «пустая»
+            public System.Func<Material, bool> Safe; // своя проверка, можно ли включить без изменения вида
+            public (string prop, float value)[] Neutral; // значения, при которых функция ничего не меняет
+        }
+
+        static (string, float)[] P(params (string, float)[] p) => p;
+
+        // Только функции, для которых точно известно «нулевое» состояние.
+        static readonly Feature[] Features =
+        {
+            new Feature { Name = "Adjust Colors", Toggle = "_MainColorAdjustToggle", Keyword = "COLOR_GRADING_HDR",
+                Neutral = P(("_Saturation", 0), ("_MainChromatize", 0), ("_MainBrightness", 0), ("_MainGamma", 1), ("_MainHueShiftToggle", 0)) },
+            new Feature { Name = "UV Tile Discard", Toggle = "_EnableUDIMDiscardOptions", Keyword = "POI_UDIMDISCARD",
+                Neutral = Udim() },
+            new Feature { Name = "Detail Texture", Toggle = "_DetailEnabled", Keyword = "FINALPASS",
+                Neutral = P(("_DetailTexIntensity", 0), ("_DetailNormalMapScale", 0)) },
+            new Feature { Name = "AudioLink", Toggle = "_EnableAudioLink", Keyword = "POI_AUDIOLINK",
+                Neutral = P() }, // сам по себе ничего не рисует — эффекты включаются отдельно
+            new Feature { Name = "Matcap 1", Toggle = "_Matcap2Enable", Keyword = "COLOR_GRADING_HDR_3D",
+                Neutral = P(("_Matcap2Intensity", 0), ("_Matcap2EmissionStrength", 0)) },
+            new Feature { Name = "Matcap 2", Toggle = "_Matcap3Enable", Keyword = "POI_MATCAP2",
+                Neutral = P(("_Matcap3Intensity", 0), ("_Matcap3EmissionStrength", 0)) },
+            new Feature { Name = "Rim Lighting", Toggle = "_EnableRimLighting", Keyword = "_GLOSSYREFLECTIONS_OFF",
+                Neutral = P(("_RimBlendStrength", 0), ("_RimStrength", 0)) },
+            new Feature { Name = "Emission", Toggle = "_EnableEmission", Keyword = "_EMISSION",
+                Neutral = P(("_EmissionStrength", 0)) },
+            new Feature { Name = "Decal 0", Toggle = "_DecalEnabled", Keyword = "GEOM_TYPE_BRANCH",
+                Neutral = P(("_DecalBlendAlpha", 0), ("_DecalEmissionStrength", 0), ("_DecalOverrideAlpha", 0)) },
+            new Feature { Name = "Decal 1", Toggle = "_DecalEnabled1", Keyword = "POI_DECAL_1",
+                Neutral = P(("_DecalBlendAlpha1", 0), ("_DecalEmissionStrength1", 0), ("_DecalOverrideAlpha1", 0)) },
+            new Feature { Name = "Decal 2", Toggle = "_DecalEnabled2", Keyword = "POI_DECAL_2",
+                Neutral = P(("_DecalBlendAlpha2", 0), ("_DecalEmissionStrength2", 0), ("_DecalOverrideAlpha2", 0)) },
+            new Feature { Name = "Emission 2", Toggle = "_EnableEmission2", Keyword = "POI_EMISSION_2",
+                Neutral = P(("_EmissionStrength2", 0)) },
+            // своя нормаль матcapа: безопасно включить, только если сам матcap у материала выключен или «пустой»
+            // (_Matcap3CustomNormal стоит в разделе _Matcap4 = «Matcap 3», _Matcap1CustomNormal — в разделе _Matcap2 = «Matcap 1»)
+            new Feature { Name = "Matcap 3 Custom Normal", Toggle = "_Matcap3CustomNormal", Keyword = "POI_MATCAP3_CUSTOM_NORMAL",
+                Neutral = P(), OnlyIfNeutral = "Matcap 3" },
+            new Feature { Name = "Matcap 1 Custom Normal", Toggle = "_Matcap1CustomNormal", Keyword = "POI_MATCAP1_CUSTOM_NORMAL",
+                Neutral = P(), OnlyIfNeutral = "Matcap 1" },
+            new Feature { Name = "Environmental Rim", Toggle = "_EnableEnvironmentalRim", Keyword = "POI_ENVIRORIM",
+                Neutral = P(("_RimEnviroIntensity", 0)) },
+            // глобальные маски сами ничего не рисуют; безопасно, если у материала нет своих текстур масок
+            // и ни одна функция не ссылается на глобальную маску (все *GlobalMask / *GlobalMaskIndex = Off)
+            new Feature { Name = "Global Mask Textures", Toggle = "_GlobalMaskTexturesEnable", Keyword = "POI_GLOBALMASK_TEXTURES",
+                Neutral = P(), Safe = GlobalMasksUnused },
+            new Feature { Name = "Decal 3", Toggle = "_DecalEnabled3", Keyword = "POI_DECAL_3",
+                Neutral = P(("_DecalBlendAlpha3", 0), ("_DecalEmissionStrength3", 0), ("_DecalOverrideAlpha3", 0)) },
+            new Feature { Name = "Stylized Specular", Toggle = "_StylizedSpecular", Keyword = "POI_STYLIZED_StylizedSpecular",
+                Neutral = P(("_StylizedSpecularStrength", 0)) },
+            new Feature { Name = "Dissolve", Toggle = "_EnableDissolve", Keyword = "DISTORT",
+                Neutral = P(("_DissolveAlpha", 0), ("_DissolveEdgeWidth", 0), ("_DissolveEdgeEmission", 0)) },
+            new Feature { Name = "AO Maps", Toggle = null, Keyword = "PROP_LIGHTINGAOMAPS", NeedsEmpty = "_LightingAOMaps",
+                Neutral = P(("_LightDataAOStrengthR", 0), ("_LightDataAOStrengthG", 0), ("_LightDataAOStrengthB", 0), ("_LightDataAOStrengthA", 0)) },
+            new Feature { Name = "Rim Lighting 2", Toggle = "_EnableRim2Lighting", Keyword = "POI_RIM2",
+                Neutral = P(("_Rim2BlendStrength", 0), ("_Rim2Strength", 0)) },
+            new Feature { Name = "Anisotropics", Toggle = "_EnableAniso", Keyword = "POI_ANISOTROPICS",
+                Neutral = P(("_Aniso0Strength", 0), ("_Aniso1Strength", 0)) },
+            new Feature { Name = "Matcap 0", Toggle = "_MatcapEnable", Keyword = "POI_MATCAP0",
+                Neutral = P(("_MatcapIntensity", 0), ("_MatcapEmissionStrength", 0)) },
+            new Feature { Name = "Matcap 3", Toggle = "_Matcap4Enable", Keyword = "POI_MATCAP3",
+                Neutral = P(("_Matcap4Intensity", 0), ("_Matcap4EmissionStrength", 0)) },
+            new Feature { Name = "Emission 1", Toggle = "_EnableEmission1", Keyword = "POI_EMISSION_1",
+                Neutral = P(("_EmissionStrength1", 0)) },
+            new Feature { Name = "Glitter", Toggle = "_GlitterEnable", Keyword = "_SUNDISK_SIMPLE",
+                Neutral = P(("_GlitterBrightness", 0), ("_GlitterBlendType", 0)) },
+        };
+
+        static bool GlobalMasksUnused(Material m)
+        {
+            for (int i = 0; i < 4; i++)
+                if (m.HasProperty($"_GlobalMaskTexture{i}") && m.GetTexture($"_GlobalMaskTexture{i}") != null) return false;
+            var s = m.shader;
+            for (int i = 0; i < s.GetPropertyCount(); i++)
+            {
+                var t = s.GetPropertyType(i);
+                if (t != UnityEngine.Rendering.ShaderPropertyType.Float && t != UnityEngine.Rendering.ShaderPropertyType.Range
+                    && t != UnityEngine.Rendering.ShaderPropertyType.Int) continue;
+                var n = s.GetPropertyName(i);
+                if ((n.EndsWith("GlobalMask") || n.EndsWith("GlobalMaskIndex") || n.EndsWith("GlobalMaskChannel")) && m.GetFloat(n) != 0) return false;
+            }
+            return true;
+        }
+
+        static (string, float)[] Udim()
+        {
+            var l = new List<(string, float)> { ("_EnableUDIMFaceDiscardOptions", 0) };
+            for (int r = 0; r < 4; r++) for (int c = 0; c < 4; c++) l.Add(($"_UDIMDiscardRow{r}_{c}", 0));
+            return l.ToArray();
+        }
+
+        const int CommonQueue = 2450; // AlphaTest — очередь большинства материалов Poiyomi
+
+        public static string FolderOf(GameObject avatar) => $"Assets/TurboOptimizer/Materials/{Safe(avatar.name)}";
+        static string BackupFile(GameObject avatar) => $"Assets/TurboOptimizer/Backups/{Safe(avatar.name)}/materials.txt";
+
+        public static void Apply(GameObject avatar, List<string> log, bool unifyTransparent = false)
+        {
+            var swapped = SwappedMaterials(avatar);
+            var backup = ReadBackup(BackupFile(avatar)); // путь копии → путь оригинала
+
+            // 1. кандидаты: Poiyomi без Lock, не подменяются анимацией, не на частицах
+            var slots = new List<(Renderer r, int i, Material m)>();
+            foreach (var r in avatar.GetComponentsInChildren<Renderer>(true))
+            {
+                if (AvatarUtil.IsEditorOnly(r.transform) || r is ParticleSystemRenderer || r is TrailRenderer || r is LineRenderer) continue;
+                var arr0 = r.sharedMaterials;
+                for (int i = 0; i < arr0.Length; i++) if (arr0[i] != null) slots.Add((r, i, arr0[i]));
+            }
+            bool Candidate(Material m) =>
+                m.shader.name.StartsWith(".poiyomi/") && !m.shader.name.Contains("Locked") && !swapped.Contains(m)
+                && !swapped.Contains(OriginalOf(m, backup));
+            var mats0 = slots.Select(s => s.m).Distinct().Where(Candidate).ToList();
+            var skipped = slots.Select(s => s.m).Distinct().Where(m => !Candidate(m)).Select(m => m.name).ToList();
+            if (skipped.Count > 0) log.Add(L.T("= не трогаю (Lock, подмена анимацией или другой шейдер): ", "= skipped (locked, swapped by animation or other shader): ") + string.Join(", ", skipped));
+
+            // 2. копии материалов
+            Directory.CreateDirectory(FolderOf(avatar));
+            var copyOf = new Dictionary<Material, Material>();
+            foreach (var m in mats0)
+            {
+                var path = AssetDatabase.GetAssetPath(m);
+                if (backup.ContainsKey(path))
+                {
+                    // уже наша копия — пересобираем с оригинала, чтобы повторный запуск давал тот же результат
+                    var orig = AssetDatabase.LoadAssetAtPath<Material>(backup[path]);
+                    if (orig != null)
+                    {
+                        m.CopyPropertiesFromMaterial(orig);
+                        m.shaderKeywords = orig.shaderKeywords;
+                        m.renderQueue = orig.renderQueue;
+                    }
+                    copyOf[m] = m; continue;
+                }
+                var copyPath = AssetDatabase.GenerateUniqueAssetPath($"{FolderOf(avatar)}/{Safe(m.name)}.mat");
+                var copy = new Material(m) { name = m.name };
+                AssetDatabase.CreateAsset(copy, copyPath);
+                backup[copyPath] = path;
+                copyOf[m] = copy;
+            }
+            WriteBackup(BackupFile(avatar), backup);
+            foreach (var s in slots.Where(s => copyOf.ContainsKey(s.m)))
+            {
+                var arr = s.r.sharedMaterials;
+                if (arr[s.i] == copyOf[s.m]) continue;
+                Undo.RecordObject(s.r, "Orchestra materials");
+                arr[s.i] = copyOf[s.m];
+                s.r.sharedMaterials = arr;
+                PrefabUtility.RecordPrefabInstancePropertyModifications(s.r);
+            }
+            var mats = copyOf.Values.Distinct().ToList();
+
+            // 3. очередь рендера: непрозрачным и cutout (без смешивания) ставим общую
+            int rq = 0;
+            foreach (var m in mats)
+            {
+                if (m.renderQueue == CommonQueue || !Opaque(m) || m.renderQueue < 2000 || m.renderQueue >= 2500 || UsesStencil(m)) continue;
+                log.Add($"  {m.name}: {L.T("очередь", "queue")} {m.renderQueue} → {CommonQueue}");
+                m.renderQueue = CommonQueue; rq++;
+                EditorUtility.SetDirty(m);
+            }
+            // по желанию: общая очередь и для прозрачных вещей (2451–2499). Может поменять,
+            // какой прозрачный слой рисуется поверх другого — поэтому только по галочке.
+            if (unifyTransparent)
+            {
+                var trans = mats.Where(m => !Opaque(m) && m.renderQueue > CommonQueue && m.renderQueue < 2500 && !UsesStencil(m)).ToList();
+                if (trans.Count > 1)
+                {
+                    int q = trans.GroupBy(m => m.renderQueue).OrderByDescending(g => g.Count()).ThenBy(g => g.Key).First().Key;
+                    foreach (var m in trans.Where(m => m.renderQueue != q))
+                    {
+                        log.Add($"  {m.name} ({L.T("прозрачный", "transparent")}): {L.T("очередь", "queue")} {m.renderQueue} → {q}");
+                        m.renderQueue = q; rq++;
+                    }
+                }
+            }
+
+            // 4. функции: выключить «пустые», затем в каждой группе (очередь + Cull + режим) включить общие с нулевой силой
+            // свойства, которые анимации меняют на рендерерах с этим материалом: такие функции не выключаем
+            var animated = AnimatedProps(avatar);
+            var animByMat = new Dictionary<Material, HashSet<string>>();
+            foreach (var s in slots)
+            {
+                var path = AnimationUtility.CalculateTransformPath(s.r.transform, avatar.transform);
+                if (!copyOf.TryGetValue(s.m, out var cm) || !animated.TryGetValue(path, out var props)) continue;
+                if (!animByMat.TryGetValue(cm, out var set)) animByMat[cm] = set = new HashSet<string>();
+                set.UnionWith(props);
+            }
+            bool Animated(Material m, Feature f) => animByMat.TryGetValue(m, out var set)
+                && ((f.Toggle != null && set.Contains(f.Toggle)) || f.Neutral.Any(p => set.Contains(p.prop)));
+
+            int off = 0, on = 0;
+            foreach (var m in mats)
+                foreach (var f in Features)
+                    if (IsOn(m, f) && IsNeutral(m, f) && !Animated(m, f) && f.NeedsEmpty == null) { SetOn(m, f, false); off++; }
+
+            foreach (var g in mats.GroupBy(GroupKey))
+            {
+                var group = g.ToList();
+                if (group.Count < 2) continue;
+                foreach (var f in Features)
+                {
+                    int with = group.Count(m => IsOn(m, f));
+                    if (with == 0 || with == group.Count) continue;
+                    bool CanEnable(Material m)
+                    {
+                        if (f.NeedsEmpty != null && m.HasProperty(f.NeedsEmpty) && m.GetTexture(f.NeedsEmpty) != null) return false;
+                        if (f.Safe != null && !f.Safe(m)) return false;
+                        if (f.OnlyIfNeutral != null)
+                        {
+                            var parent = Features.First(x => x.Name == f.OnlyIfNeutral);
+                            if (IsOn(m, parent) && !IsNeutral(m, parent)) return false;
+                        }
+                        return true;
+                    }
+                    var lacking = group.Where(m => !IsOn(m, f)).ToList();
+                    // если хоть одному материалу функцию включить нельзя — не включаем никому:
+                    // иначе группа расколется по-новому и склеится хуже, чем было (проверено на Full SPS)
+                    if (!lacking.All(CanEnable))
+                    {
+                        log.Add(L.T($"  {f.Name}: не выравниваю в группе «{g.Key}» — у {lacking.Count(m => !CanEnable(m))} материалов её нельзя включить без изменения вида", $"  {f.Name}: not aligned in group «{g.Key}» — {lacking.Count(m => !CanEnable(m))} materials can't enable it without changing the look"));
+                        continue;
+                    }
+                    foreach (var m in lacking)
+                    {
+                        foreach (var (prop, v) in f.Neutral) if (m.HasProperty(prop)) m.SetFloat(prop, v);
+                        SetOn(m, f, true); on++;
+                    }
+                    log.Add(L.T($"  {f.Name}: включено с нулевой силой у {lacking.Count} материалов группы «{g.Key}»", $"  {f.Name}: enabled at zero strength on {lacking.Count} materials of group «{g.Key}»"));
+                }
+            }
+            // запасной шейдер VRChat (виден, только когда шейдеры у зрителя скрыты) — один на группу
+            foreach (var g in mats.GroupBy(GroupKey))
+            {
+                var tag = g.GroupBy(m => m.GetTag("VRCFallback", false, "None")).OrderByDescending(x => x.Count()).First().Key;
+                foreach (var m in g.Where(m => m.GetTag("VRCFallback", false, "None") != tag))
+                {
+                    log.Add($"  {m.name}: {L.T("запасной шейдер VRChat", "VRChat fallback shader")} {m.GetTag("VRCFallback", false, "None")} → {tag}");
+                    m.SetOverrideTag("VRCFallback", tag == "None" ? "" : tag);
+                }
+            }
+            foreach (var m in mats) EditorUtility.SetDirty(m);
+            AssetDatabase.SaveAssets();
+            log.Add(L.T($"+ Материалы: копий {mats.Count} в {FolderOf(avatar)}, очередь выровнена у {rq}, пустых функций выключено {off}, включено с нулевой силой {on}", $"+ Materials: {mats.Count} copies in {FolderOf(avatar)}, queue aligned on {rq}, unused features off {off}, enabled at zero strength {on}"));
+        }
+
+        // Вернуть оригинальные материалы на все слоты.
+        public static int Restore(GameObject avatar)
+        {
+            var backup = ReadBackup(BackupFile(avatar));
+            int n = 0;
+            foreach (var r in avatar.GetComponentsInChildren<Renderer>(true))
+            {
+                var arr = r.sharedMaterials;
+                bool changed = false;
+                for (int i = 0; i < arr.Length; i++)
+                {
+                    if (arr[i] == null || !backup.TryGetValue(AssetDatabase.GetAssetPath(arr[i]), out var orig)) continue;
+                    var m = AssetDatabase.LoadAssetAtPath<Material>(orig);
+                    if (m == null) continue;
+                    arr[i] = m; changed = true; n++;
+                }
+                if (!changed) continue;
+                Undo.RecordObject(r, "Orchestra materials restore");
+                r.sharedMaterials = arr;
+                PrefabUtility.RecordPrefabInstancePropertyModifications(r);
+            }
+            return n;
+        }
+
+        static string GroupKey(Material m) =>
+            // Cull d4rk склеивать не мешает (в отчёте нет такой причины) — в ключ группы не входит
+            $"{m.shader.name.Replace(".poiyomi/", "")}, rq {m.renderQueue}";
+
+        static bool IsOn(Material m, Feature f) => m.IsKeywordEnabled(f.Keyword) || (f.Toggle != null && m.HasProperty(f.Toggle) && m.GetFloat(f.Toggle) > 0.5f);
+
+        // путь рендерера → свойства материала, которые меняют анимации
+        static Dictionary<string, HashSet<string>> AnimatedProps(GameObject avatar)
+        {
+            var map = new Dictionary<string, HashSet<string>>();
+            var desc = AvatarUtil.Descriptor(avatar);
+            foreach (var field in new[] { "baseAnimationLayers", "specialAnimationLayers" })
+            {
+                if (!(Reflect.GetPath(desc, field) is System.Array layers)) continue;
+                foreach (var l in layers)
+                {
+                    if (!(Reflect.GetPath(l, "animatorController") is RuntimeAnimatorController c) || c == null) continue;
+                    foreach (var clip in c.animationClips)
+                    {
+                        if (clip == null) continue;
+                        foreach (var b in AnimationUtility.GetCurveBindings(clip))
+                        {
+                            if (!b.propertyName.StartsWith("material.")) continue;
+                            var prop = b.propertyName.Substring("material.".Length);
+                            int dot = prop.IndexOf('.');
+                            if (dot > 0) prop = prop.Substring(0, dot); // material._Color.r → _Color
+                            if (!map.TryGetValue(b.path, out var set)) map[b.path] = set = new HashSet<string>();
+                            set.Add(prop);
+                        }
+                    }
+                }
+            }
+            return map;
+        }
+
+        static bool IsNeutral(Material m, Feature f) =>
+            f.Neutral.Length > 0 && f.Neutral.All(p => !m.HasProperty(p.prop) || Mathf.Approximately(m.GetFloat(p.prop), p.value));
+
+        static void SetOn(Material m, Feature f, bool on)
+        {
+            if (f.Toggle != null && m.HasProperty(f.Toggle)) m.SetFloat(f.Toggle, on ? 1 : 0);
+            if (on) m.EnableKeyword(f.Keyword); else m.DisableKeyword(f.Keyword);
+        }
+
+        // без смешивания цветов: DstBlend = Zero и пишет глубину
+        static bool Opaque(Material m) =>
+            (!m.HasProperty("_DstBlend") || Mathf.Approximately(m.GetFloat("_DstBlend"), 0))
+            && (!m.HasProperty("_ZWrite") || m.GetFloat("_ZWrite") > 0.5f);
+
+        static bool UsesStencil(Material m) =>
+            (m.HasProperty("_StencilPassOp") && m.GetFloat("_StencilPassOp") != 0)
+            || (m.HasProperty("_StencilCompareFunction") && m.GetFloat("_StencilCompareFunction") != 8 && m.GetFloat("_StencilCompareFunction") != 0);
+
+        static Material OriginalOf(Material m, Dictionary<string, string> backup) =>
+            backup.TryGetValue(AssetDatabase.GetAssetPath(m), out var p) ? AssetDatabase.LoadAssetAtPath<Material>(p) : null;
+
+        static HashSet<Material> SwappedMaterials(GameObject avatar)
+        {
+            var set = new HashSet<Material>();
+            var desc = AvatarUtil.Descriptor(avatar);
+            foreach (var field in new[] { "baseAnimationLayers", "specialAnimationLayers" })
+            {
+                if (!(Reflect.GetPath(desc, field) is System.Array layers)) continue;
+                foreach (var l in layers)
+                {
+                    if (!(Reflect.GetPath(l, "animatorController") is RuntimeAnimatorController c) || c == null) continue;
+                    foreach (var clip in c.animationClips)
+                    {
+                        if (clip == null) continue;
+                        foreach (var b in AnimationUtility.GetObjectReferenceCurveBindings(clip))
+                        {
+                            if (!b.propertyName.StartsWith("m_Materials")) continue;
+                            foreach (var k in AnimationUtility.GetObjectReferenceCurve(clip, b))
+                                if (k.value is Material mm) set.Add(mm);
+                        }
+                    }
+                }
+            }
+            return set;
+        }
+
+        static Dictionary<string, string> ReadBackup(string file)
+        {
+            var d = new Dictionary<string, string>();
+            if (!File.Exists(file)) return d;
+            foreach (var line in File.ReadAllLines(file))
+            {
+                int i = line.IndexOf('\t');
+                if (i > 0) d[line.Substring(0, i)] = line.Substring(i + 1);
+            }
+            return d;
+        }
+
+        static void WriteBackup(string file, Dictionary<string, string> d)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(file));
+            File.WriteAllLines(file, d.Select(kv => kv.Key + "\t" + kv.Value));
+        }
+
+        static string Safe(string s) => string.Concat(s.Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '_' : c));
+    }
+}
