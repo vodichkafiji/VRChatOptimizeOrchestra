@@ -17,7 +17,6 @@ namespace TurboOptimizer
         const int KeepSmallerThan = 1500;  // мелкие меши не трогаем
         const float FaceKeep = 0.85f;      // меш лица: не меньше 85% (на Mishi при 60% лицо исказилось даже с защитой)
         const float MinKeep = 0.45f;       // остальные меши: не меньше 45%
-        const float HandsKeep = 0.60f;     // меши с кистями и пальцами: не меньше 60% (на Mishi при 30% «поломались» пальцы)
 
         public static int CurrentTriangles(GameObject avatar) =>
             AvatarUtil.MeshRenderers(avatar).Sum(r => AvatarUtil.Triangles(AvatarUtil.GetMesh(r)));
@@ -65,17 +64,21 @@ namespace TurboOptimizer
                 if (!map.ContainsKey(r)) { var e = Activator.CreateInstance(entryType, new object[] { r }); entries.Add(e); map[r] = e; }
 
             var face = AvatarUtil.FaceRenderer(avatar);
+            var anim = avatar.GetComponent<Animator>();
             int left = budget;
             var adjustable = new List<(object e, Renderer r, int tris)>();
             foreach (var r in renderers)
             {
                 var e = map[r];
                 int tris = AvatarUtil.Triangles(AvatarUtil.GetMesh(r));
-                if (tris < KeepSmallerThan || AvatarUtil.IsPenetrator(r) || (r == face && !simplifyFace))
+                // меши с кистями и пальцами не упрощаем совсем: на Mishi пальцы ломались и при 30%, и при 60% (вытягивались шипами)
+                bool hands = tris >= KeepSmallerThan && HasHands(r, anim);
+                if (tris < KeepSmallerThan || AvatarUtil.IsPenetrator(r) || (r == face && !simplifyFace) || hands)
                 {
                     fEnabled.SetValue(e, false); fTarget.SetValue(e, tris); left -= tris;
                     if (AvatarUtil.IsPenetrator(r)) log.Add($"  {r.name}: SPS/DPS, {L.T("не упрощается", "not simplified")}");
-                    if (r == face) log.Add($"  {r.name}: {L.T("лицо, не упрощается", "face, not simplified")}");
+                    else if (hands) log.Add($"  {r.name}: {L.T("кисти и пальцы, не упрощается", "hands and fingers, not simplified")}");
+                    else if (r == face) log.Add($"  {r.name}: {L.T("лицо, не упрощается", "face, not simplified")}");
                 }
                 else adjustable.Add((e, r, tris));
             }
@@ -83,9 +86,7 @@ namespace TurboOptimizer
             // Одна общая доля для всех, но с пределами «без порчи вида»: лицо не меньше FaceKeep, остальные не меньше minKeep.
             // Если кто-то упёрся в свой предел, остальным достаётся меньше. Не влезает — не ломаем, а просим убрать вещи.
             var targets = new Dictionary<Renderer, int>(); // ключ — рендерер: записи Meshia — record, их хэш меняется при правке
-            var anim = avatar.GetComponent<Animator>();
-            var handMeshes = new HashSet<Renderer>(adjustable.Where(x => x.r != face && HasHands(x.r, anim)).Select(x => x.r));
-            float Floor(Renderer r) => r == face ? FaceKeep : handMeshes.Contains(r) ? Mathf.Max(minKeep, HandsKeep) : minKeep;
+            float Floor(Renderer r) => r == face ? FaceKeep : minKeep;
             var open = adjustable.ToList();
             int budgetLeft = left;
             for (int it = 0; it < 5 && open.Count > 0; it++)
@@ -108,11 +109,6 @@ namespace TurboOptimizer
             }
             // бережный режим для всех упрощаемых мешей: на Mishi при сильном упрощении страдали и пальцы, и ноги
             foreach (var x in adjustable) if (x.r != face) ProtectShape(x.e, entryType);
-            foreach (var r in handMeshes)
-            {
-                ProtectShape(map[r], entryType);
-                log.Add($"  {r.name}: {L.T("кисти и пальцы — упрощается бережно", "hands and fingers — simplified gently")} ({AvatarUtil.Triangles(AvatarUtil.GetMesh(r))} → {targets[r]})");
-            }
             foreach (var kv in targets) { var en = map[kv.Key]; fEnabled.SetValue(en, true); fFixed.SetValue(en, false); fTarget.SetValue(en, kv.Value); }
 
             int result = 0;
@@ -175,7 +171,7 @@ namespace TurboOptimizer
                 var fOpt = entryType.GetField("Options");
                 object opt = fOpt.GetValue(entry);
                 var ot = opt.GetType();
-                ot.GetField("UseBarycentricCoordinateInterpolation")?.SetValue(opt, true);
+                ot.GetField("UseBarycentricCoordinateInterpolation")?.SetValue(opt, false); // true смешивает и веса костей → шипы на пальцах
                 ot.GetField("PreserveSurfaceCurvature")?.SetValue(opt, true);
                 fOpt.SetValue(entry, opt);
             }
@@ -191,7 +187,7 @@ namespace TurboOptimizer
                 var fOpt = entryType.GetField("Options");
                 object opt = fOpt.GetValue(entry); // boxed struct
                 var ot = opt.GetType();
-                ot.GetField("UseBarycentricCoordinateInterpolation")?.SetValue(opt, true);
+                ot.GetField("UseBarycentricCoordinateInterpolation")?.SetValue(opt, false); // true смешивает и веса костей → шипы на пальцах
                 ot.GetField("PreserveSurfaceCurvature")?.SetValue(opt, true);
                 fOpt.SetValue(entry, opt);
                 var fBones = entryType.GetField("PreserveBorderEdgesBones");
