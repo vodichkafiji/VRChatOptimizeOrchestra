@@ -48,8 +48,8 @@ namespace TurboOptimizer
                                         "Merges a few more materials. But transparent layers (mesh, lace, glass) may start drawing in a different order — check by eye."), Styles.Small);
                     EditorGUILayout.Space(4);
                     _keepFace = EditorGUILayout.ToggleLeft(L.T("Не упрощать лицо", "Don't simplify the face"), _keepFace, EditorStyles.boldLabel);
-                    GUILayout.Label(L.T("Обычно лицо упрощается бережно (не меньше 60%, края глаз, рта и ресниц сохраняются). Если лицо всё же выглядит сломанным — включи и нажми «Оптимизировать» ещё раз.",
-                                        "Normally the face is simplified gently (at least 60%, eye, mouth and lash edges are kept). If the face still looks broken, turn this on and press \"Optimize\" again."), Styles.Small);
+                    GUILayout.Label(L.T("Обычно лицо упрощается бережно (не меньше 85%, края глаз, рта и ресниц сохраняются). Если лицо всё же выглядит сломанным — включи и нажми «Оптимизировать» ещё раз.",
+                                        "Normally the face is simplified gently (at least 85%, eye, mouth and lash edges are kept). If the face still looks broken, turn this on and press \"Optimize\" again."), Styles.Small);
                     EditorGUILayout.Space(4);
                     _anyCost = EditorGUILayout.ToggleLeft(L.T("Дожать до цели любой ценой", "Reach the target at any cost"), _anyCost, EditorStyles.boldLabel);
                     if (_anyCost)

@@ -15,7 +15,7 @@ namespace TurboOptimizer
         public const string HolderName = "TurboOptimizer Mesh Budget";
         const float FaceShare = 0.30f;     // доля бюджета для меша лица/тела
         const int KeepSmallerThan = 1500;  // мелкие меши не трогаем
-        const float FaceKeep = 0.60f;      // меш лица: не меньше 60% треугольников, и только с защитой (см. ProtectFace)
+        const float FaceKeep = 0.85f;      // меш лица: не меньше 85% (на Mishi при 60% лицо исказилось даже с защитой)
         const float MinKeep = 0.45f;       // остальные меши: не меньше 45%
 
         public static int CurrentTriangles(GameObject avatar) =>
