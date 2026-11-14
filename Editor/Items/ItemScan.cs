@@ -450,6 +450,16 @@ namespace TurboOptimizer
             return set;
         }
 
+        // После отката: оставляем в списке только объекты, которые всё ещё убраны (EditorOnly); пустой список — удаляем файл.
+        public static void PruneRemovedList(GameObject avatar)
+        {
+            var list = ReadList(avatar);
+            if (list.Count == 0) { Cleanup.DeleteFile(ListFile(avatar)); return; }
+            var keep = list.Where(p => { var t = avatar.transform.Find(p); return t != null && t.CompareTag("EditorOnly"); }).ToList();
+            if (keep.Count == 0) Cleanup.DeleteFile(ListFile(avatar));
+            else if (keep.Count != list.Count) WriteList(avatar, keep);
+        }
+
         static List<string> ReadList(GameObject avatar) => File.Exists(ListFile(avatar)) ? File.ReadAllLines(ListFile(avatar)).Where(s => s.Length > 0).ToList() : new List<string>();
         static void WriteList(GameObject avatar, List<string> list)
         {

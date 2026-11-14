@@ -90,6 +90,7 @@ namespace TurboOptimizer
                         {
                             int n = MaterialHarmonizer.Restore(_avatar);
                             EditorSceneManager.MarkSceneDirty(_avatar.scene);
+                            Cleanup.Run(_avatar, _log);
                             _log.Add(L.T($"Материалы: вернул оригиналы на {n} слотов. Сохрани сцену (Ctrl+S).", $"Materials: restored originals on {n} slots. Save the scene (Ctrl+S)."));
                         }
                     }

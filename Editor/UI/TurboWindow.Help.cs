@@ -43,7 +43,7 @@ namespace TurboOptimizer
 
             using (Card("", L.T("Как откатить", "How to revert")))
             {
-                Bullet(L.T("Кнопка «Вернуть всё как было» в простом режиме — полный откат (до перезапуска Unity).", "\"Revert everything\" in Easy mode — a full revert (until Unity restarts)."));
+                Bullet(L.T("Кнопка «Вернуть всё как было» в простом режиме — полный откат (до перезапуска Unity); заодно удаляет копии материалов и бэкапы плагина.", "\"Revert everything\" in Easy mode — a full revert (until Unity restarts); it also deletes the plugin's material copies and backups."));
                 Bullet(L.T("Отдельная вещь — кнопка «Вернуть» рядом с ней.", "A single item — the \"Restore\" button next to it."));
                 Bullet(L.T("В ПРО: «Откатить текстуры», «Вернуть оригиналы» материалов, или Edit → Undo.", "In PRO: \"Restore textures\", material \"Restore originals\", or Edit → Undo."));
                 Bullet(L.T("Самый надёжный способ — сделать копию сцены или аватара перед оптимизацией.", "The safest way is to duplicate the scene or avatar before optimizing."));

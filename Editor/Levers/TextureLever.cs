@@ -176,7 +176,7 @@ namespace TurboOptimizer
                 if (f.Length > 3) ti.textureType = (TextureImporterType)int.Parse(f[3]);
                 ti.SaveAndReimport();
             }
-            if (File.Exists(file)) File.Delete(file);
+            Cleanup.DeleteFile(file); // вместе с .meta
             AssetDatabase.Refresh();
             return backup.Count;
         }

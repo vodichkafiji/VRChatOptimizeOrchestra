@@ -462,6 +462,7 @@ namespace TurboOptimizer
             int tex = TextureLever.Restore(_avatar);
             int mats = MaterialHarmonizer.Restore(_avatar);
             _log.Add(L.T($"Откат: текстур {tex}, материалов {mats}.", $"Reverted: {tex} textures, {mats} materials."));
+            Cleanup.Run(_avatar, _log);
             _changes.Clear();
             _optimized = false;
             _rankBefore = Rank.None;

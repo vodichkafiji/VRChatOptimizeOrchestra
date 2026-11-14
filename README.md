@@ -85,7 +85,7 @@ Then open **Tools → fiji's Optimize Orchestra**.
 | Menu | On upload, toggles that only controlled removed items are dropped from a copy of the menu | Restore the item |
 | SPS | Turns off legacy DPS compatibility (lights), or the whole SPS if you choose | *Revert everything* |
 
-*Revert everything* in Easy mode does a full rollback until Unity is restarted.
+*Revert everything* in Easy mode does a full rollback until Unity is restarted, and deletes the material copies and backup files the plugin made for this avatar.
 
 ## FAQ
 
@@ -186,7 +186,7 @@ Built on top of the great work of [anatawa12 (AAO)](https://github.com/anatawa12
 | Меню | При загрузке из копии меню убираются переключатели, которые управляли только убранными вещами | Вернуть вещь |
 | SPS | Выключает старую совместимость с DPS (свет) или весь SPS, если выберешь | «Вернуть всё как было» |
 
-«Вернуть всё как было» в простом режиме делает полный откат (до перезапуска Unity).
+«Вернуть всё как было» в простом режиме делает полный откат (до перезапуска Unity) и удаляет копии материалов и файлы бэкапов, которые плагин сделал для этого аватара.
 
 ## Частые вопросы
 
