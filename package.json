@@ -1,7 +1,7 @@
 {
   "name": "dev.turbooptimizer",
   "displayName": "fiji's Optimize Orchestra",
-  "version": "0.4.7",
+  "version": "0.4.8",
   "unity": "2022.3",
   "description": "Brings a VRChat avatar to Medium or Good by orchestrating AAO, d4rkAvatarOptimizer, Meshia and VRCFury. Easy and PRO modes, English and Russian UI.",
   "author": { "name": "fiji", "url": "https://github.com/vodichkafiji" },

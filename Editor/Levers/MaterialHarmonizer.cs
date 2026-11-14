@@ -20,6 +20,7 @@ namespace TurboOptimizer
             public string OnlyIfNeutral; // под-настройка другой функции: включать, только если та выключена или «пустая»
             public System.Func<Material, bool> Safe; // своя проверка, можно ли включить без изменения вида
             public (string prop, float value)[] Neutral; // значения, при которых функция ничего не меняет
+            public System.Func<Material, bool> NeutralFn; // своя проверка «ничего не делает» (если нет простых значений)
         }
 
         static (string, float)[] P(params (string, float)[] p) => p;
@@ -64,7 +65,7 @@ namespace TurboOptimizer
             // глобальные маски сами ничего не рисуют; безопасно, если у материала нет своих текстур масок
             // и ни одна функция не ссылается на глобальную маску (все *GlobalMask / *GlobalMaskIndex = Off)
             new Feature { Name = "Global Mask Textures", Toggle = "_GlobalMaskTexturesEnable", Keyword = "POI_GLOBALMASK_TEXTURES",
-                Neutral = P(), Safe = GlobalMasksUnused },
+                Neutral = P(), Safe = GlobalMasksUnused, NeutralFn = GlobalMasksUnused },
             new Feature { Name = "Decal 3", Toggle = "_DecalEnabled3", Keyword = "POI_DECAL_3",
                 Neutral = P(("_DecalBlendAlpha3", 0), ("_DecalEmissionStrength3", 0), ("_DecalOverrideAlpha3", 0)) },
             new Feature { Name = "Stylized Specular", Toggle = "_StylizedSpecular", Keyword = "POI_STYLIZED_StylizedSpecular",
@@ -94,7 +95,12 @@ namespace TurboOptimizer
 
         // Кубмапы, которые видны только при работающей функции: у «пустых» материалов группы ставим тот же кубмап,
         // что у «живых» (или убираем), чтобы d4rk не спотыкался о разные кубмапы.
-        static readonly (string prop, string feature)[] FeatureCubes = { ("_MochieReflCube", "Reflections & Specular"), ("_CubeMap", "CubeMap") };
+        static readonly (string prop, string feature)[] FeatureCubes =
+        {
+            ("_MochieReflCube", "Reflections & Specular"), ("_CubeMap", "CubeMap"),
+            // текстуры матcapов: у «немых» матcapов (все способы смешивания = 0) картинка ни на что не влияет
+            ("_Matcap", "Matcap 0"), ("_Matcap2", "Matcap 1"), ("_Matcap3", "Matcap 2"), ("_Matcap4", "Matcap 3"),
+        };
 
         // Режимы освещения Poiyomi (KeywordEnum _LightingMode)
         static readonly string[] LightingModes = { "TEXTURERAMP", "MULTILAYER_MATH", "WRAPPED", "SKIN", "SHADEMAP", "FLAT", "REALISTIC", "CLOTH", "SDF" };
@@ -349,10 +355,19 @@ namespace TurboOptimizer
                 foreach (var (prop, featName) in FeatureCubes)
                 {
                     var f = Features.First(x => x.Name == featName);
-                    var live = g.Where(m => m.HasProperty(prop) && IsOn(m, f) && !IsNeutral(m, f)).Select(m => m.GetTexture(prop)).Distinct().ToList();
-                    if (live.Count > 1) continue; // у «живых» разные кубмапы — тут ничего не сделать без изменения вида
-                    var cube = live.FirstOrDefault();
+                    var liveMats = g.Where(m => m.HasProperty(prop) && IsOn(m, f) && !IsNeutral(m, f)).ToList();
+                    var live = liveMats.Select(m => m.GetTexture(prop)).Distinct().ToList();
+                    Texture cube;
                     int n = 0;
+                    if (live.Count > 1)
+                    {
+                        // у «живых» разные картинки: без изменения вида не выровнять. Любой ценой — берём самую частую
+                        // (для кубмапа это только запасное отражение, когда в мире нет пробы)
+                        if (!aggressive || !prop.Contains("Cube")) continue;
+                        cube = liveMats.GroupBy(m => m.GetTexture(prop)).OrderByDescending(x => x.Count()).ThenBy(x => x.Key == null ? 1 : 0).First().Key;
+                        foreach (var m in liveMats.Where(m => m.GetTexture(prop) != cube)) { m.SetTexture(prop, cube); n++; }
+                    }
+                    else cube = live.FirstOrDefault();
                     foreach (var m in g.Where(m => m.HasProperty(prop) && (!IsOn(m, f) || IsNeutral(m, f)) && m.GetTexture(prop) != cube)) { m.SetTexture(prop, cube); n++; }
                     if (n > 0) log.Add($"  {prop}: {L.T("общий кубмап у", "same cubemap on")} {n} {L.T("материалов группы", "materials of group")} «{g.Key}»");
                 }
@@ -364,6 +379,11 @@ namespace TurboOptimizer
                 {
                     var op = g.GroupBy(m => m.GetFloat("_BlendOpAlpha")).OrderByDescending(x => x.Count()).First().Key;
                     foreach (var m in g) m.SetFloat("_BlendOpAlpha", op);
+                    if (g.All(m => m.HasProperty("_DstBlendAlpha")))
+                    {
+                        var dst = g.GroupBy(m => m.GetFloat("_DstBlendAlpha")).OrderByDescending(x => x.Count()).First().Key;
+                        foreach (var m in g) m.SetFloat("_DstBlendAlpha", dst);
+                    }
                 }
                 // общий режим освещения в группе — самый частый (вид теней может измениться)
                 foreach (var g in mats.Where(m => m.HasProperty("_LightingMode")).GroupBy(GroupKey))
@@ -458,7 +478,8 @@ namespace TurboOptimizer
         }
 
         static bool IsNeutral(Material m, Feature f) =>
-            f.Neutral.Length > 0 && f.Neutral.All(p => !m.HasProperty(p.prop) || Mathf.Approximately(m.GetFloat(p.prop), p.value));
+            f.NeutralFn != null ? f.NeutralFn(m)
+            : f.Neutral.Length > 0 && f.Neutral.All(p => !m.HasProperty(p.prop) || Mathf.Approximately(m.GetFloat(p.prop), p.value));
 
         static void SetOn(Material m, Feature f, bool on)
         {
