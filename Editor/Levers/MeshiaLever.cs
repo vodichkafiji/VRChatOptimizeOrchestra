@@ -106,6 +106,8 @@ namespace TurboOptimizer
                 ProtectFace(faceEntry.e, entryType);
                 log.Add($"  {face.name}: {L.T("лицо упрощается бережно", "face simplified gently")} ({faceEntry.tris} → {targets[faceEntry.r]}, {L.T("края глаз, рта и ресниц сохраняются", "eye, mouth and lash edges kept")})");
             }
+            // бережный режим для всех упрощаемых мешей: на Mishi при сильном упрощении страдали и пальцы, и ноги
+            foreach (var x in adjustable) if (x.r != face) ProtectShape(x.e, entryType);
             foreach (var r in handMeshes)
             {
                 ProtectShape(map[r], entryType);
