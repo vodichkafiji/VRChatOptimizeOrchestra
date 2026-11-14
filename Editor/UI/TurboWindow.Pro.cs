@@ -196,7 +196,7 @@ namespace TurboOptimizer
                 TextureLever.Apply(_avatar, _log);
                 EditorUtility.DisplayProgressBar(Brand.Name, L.T("Бюджет треугольников…", "Triangle budget…"), 0.6f);
                 var limit = Thresholds.Load(_target, false)?.Get("polyCount") ?? 70000;
-                MeshiaLever.Apply(_avatar, (int)(limit * 0.97), _log);
+                MeshiaLever.Apply(_avatar, (int)(limit * 0.94), _log);
                 EditorUtility.DisplayProgressBar(Brand.Name, "d4rk…", 0.8f);
                 ToolLevers.AddD4rk(_avatar, _log);
             }

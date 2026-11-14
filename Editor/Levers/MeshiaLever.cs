@@ -175,6 +175,7 @@ namespace TurboOptimizer
                 ot.GetField("UseBarycentricCoordinateInterpolation")?.SetValue(opt, false); // true смешивает и веса костей → шипы на пальцах
                 ot.GetField("PreserveSurfaceCurvature")?.SetValue(opt, true);
                 ot.GetField("PreserveBorderEdges")?.SetValue(opt, true); // без дыр (на Mishi в чулках появлялись точки-дырки)
+                ot.GetField("EnableSmartLink")?.SetValue(opt, false); // не сливать соседние, но не связанные куски (ноготь + палец → шип)
                 fOpt.SetValue(entry, opt);
             }
             catch (Exception) { }
@@ -192,6 +193,7 @@ namespace TurboOptimizer
                 ot.GetField("UseBarycentricCoordinateInterpolation")?.SetValue(opt, false); // true смешивает и веса костей → шипы на пальцах
                 ot.GetField("PreserveSurfaceCurvature")?.SetValue(opt, true);
                 ot.GetField("PreserveBorderEdges")?.SetValue(opt, true); // без дыр (на Mishi в чулках появлялись точки-дырки)
+                ot.GetField("EnableSmartLink")?.SetValue(opt, false); // не сливать соседние, но не связанные куски (ноготь + палец → шип)
                 fOpt.SetValue(entry, opt);
                 var fBones = entryType.GetField("PreserveBorderEdgesBones");
                 if (fBones != null)
