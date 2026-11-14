@@ -129,8 +129,12 @@ namespace TurboOptimizer
 
         // aggressive — режим «Good любой ценой»: общий режим освещения в группе и одинаковые размеры/форматы текстур
         // (вид может немного измениться).
+        // Анимации, которыми пришлось пожертвовать в режиме «любой ценой» (свойство → материал), для «Что изменилось».
+        public static List<string> LastSacrificed = new List<string>();
+
         public static void Apply(GameObject avatar, List<string> log, bool unifyTransparent = false, bool aggressive = false)
         {
+            LastSacrificed.Clear();
             var swapped = SwappedMaterials(avatar);
             var backup = ReadBackup(BackupFile(avatar)); // путь копии → путь оригинала
 
@@ -172,13 +176,23 @@ namespace TurboOptimizer
                 if (!IsLocked(orig)) return m.shader.name.StartsWith(".poiyomi/");
                 if (!unlockAvailable) return false;
                 var os = OriginalShader(orig);
-                return os != null && os.name.StartsWith(".poiyomi/") && AnimationsSurviveUnlock(m, os);
+                // любой ценой: снимаем Lock и с материалов, чьи анимации на переименованных свойствах перестанут работать
+                return os != null && os.name.StartsWith(".poiyomi/") && (AnimationsSurviveUnlock(m, os) || aggressive);
             }
             var mats0 = slots.Select(s => s.m).Distinct().Where(Candidate).ToList();
             var skipped = slots.Select(s => s.m).Distinct().Where(m => !Candidate(m)).Select(m => m.name).ToList();
             if (skipped.Count > 0) log.Add(L.T("= не трогаю (Lock с анимацией, подмена анимацией или другой шейдер): ", "= skipped (locked with animations, swapped by animation or other shader): ") + string.Join(", ", skipped));
             foreach (var kv in blockedBy)
-                log.Add($"  {kv.Key.name}: {L.T("Lock не снять — анимации меняют", "can't unlock — animations change")} {string.Join(", ", kv.Value.Take(8))}{(kv.Value.Count > 8 ? " …" : "")}");
+            {
+                if (aggressive)
+                {
+                    log.Add($"  {kv.Key.name}: {L.T("Lock снимается, перестанут работать анимации", "unlocking; these animations stop working")} {string.Join(", ", kv.Value.Take(8))}{(kv.Value.Count > 8 ? " …" : "")}");
+                    // свойства с приставкой этого материала (_X_eyes → «eyes») — их и теряем; общие для меша показываем один раз
+                    foreach (var pr in kv.Value) if (!LastSacrificed.Contains(pr)) LastSacrificed.Add(pr);
+                }
+                else
+                    log.Add($"  {kv.Key.name}: {L.T("Lock не снять — анимации меняют", "can't unlock — animations change")} {string.Join(", ", kv.Value.Take(8))}{(kv.Value.Count > 8 ? " …" : "")}");
+            }
 
             // 2. копии материалов
             Directory.CreateDirectory(FolderOf(avatar));

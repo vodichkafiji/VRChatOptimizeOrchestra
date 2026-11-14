@@ -403,6 +403,10 @@ namespace TurboOptimizer
                 {
                     EditorUtility.DisplayProgressBar(Brand.Name, L.T("Материалы…", "Materials…"), 0.5f);
                     MaterialHarmonizer.Apply(_avatar, _log, _unifyTransparent, _anyCost);
+                    if (MaterialHarmonizer.LastSacrificed.Count > 0)
+                        _changes.Add(L.T("Перестанут работать анимации материалов (переключатели меню, которые меняют цвет/рисунки): ",
+                                         "Material animations stop working (menu toggles that change colors/decals): ")
+                                     + string.Join(", ", MaterialHarmonizer.LastSacrificed.Take(12)) + (MaterialHarmonizer.LastSacrificed.Count > 12 ? " …" : "") + ".");
                     _changes.Add(_unifyTransparent
                         ? L.T("Материалы выровнены для склейки, включая прозрачные — проверь, как лежат прозрачные слои.", "Materials aligned for merging, including transparent ones — check how transparent layers stack.")
                         : L.T("Материалы выровнены для склейки (вид не меняется).", "Materials aligned for merging (the look doesn't change)."));
