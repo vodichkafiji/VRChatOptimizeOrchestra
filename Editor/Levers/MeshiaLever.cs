@@ -17,6 +17,7 @@ namespace TurboOptimizer
         const int KeepSmallerThan = 1500;  // мелкие меши не трогаем
         const float FaceKeep = 0.85f;      // меш лица: не меньше 85% (на Mishi при 60% лицо исказилось даже с защитой)
         const float MinKeep = 0.45f;       // остальные меши: не меньше 45%
+        const float HandsKeep = 0.60f;     // меши с кистями и пальцами: не меньше 60% (на Mishi при 30% «поломались» пальцы)
 
         public static int CurrentTriangles(GameObject avatar) =>
             AvatarUtil.MeshRenderers(avatar).Sum(r => AvatarUtil.Triangles(AvatarUtil.GetMesh(r)));
@@ -82,7 +83,9 @@ namespace TurboOptimizer
             // Одна общая доля для всех, но с пределами «без порчи вида»: лицо не меньше FaceKeep, остальные не меньше minKeep.
             // Если кто-то упёрся в свой предел, остальным достаётся меньше. Не влезает — не ломаем, а просим убрать вещи.
             var targets = new Dictionary<Renderer, int>(); // ключ — рендерер: записи Meshia — record, их хэш меняется при правке
-            float Floor(Renderer r) => r == face ? FaceKeep : minKeep;
+            var anim = avatar.GetComponent<Animator>();
+            var handMeshes = new HashSet<Renderer>(adjustable.Where(x => x.r != face && HasHands(x.r, anim)).Select(x => x.r));
+            float Floor(Renderer r) => r == face ? FaceKeep : handMeshes.Contains(r) ? Mathf.Max(minKeep, HandsKeep) : minKeep;
             var open = adjustable.ToList();
             int budgetLeft = left;
             for (int it = 0; it < 5 && open.Count > 0; it++)
@@ -103,6 +106,11 @@ namespace TurboOptimizer
                 ProtectFace(faceEntry.e, entryType);
                 log.Add($"  {face.name}: {L.T("лицо упрощается бережно", "face simplified gently")} ({faceEntry.tris} → {targets[faceEntry.r]}, {L.T("края глаз, рта и ресниц сохраняются", "eye, mouth and lash edges kept")})");
             }
+            foreach (var r in handMeshes)
+            {
+                ProtectShape(map[r], entryType);
+                log.Add($"  {r.name}: {L.T("кисти и пальцы — упрощается бережно", "hands and fingers — simplified gently")} ({AvatarUtil.Triangles(AvatarUtil.GetMesh(r))} → {targets[r]})");
+            }
             foreach (var kv in targets) { var en = map[kv.Key]; fEnabled.SetValue(en, true); fFixed.SetValue(en, false); fTarget.SetValue(en, kv.Value); }
 
             int result = 0;
@@ -117,6 +125,59 @@ namespace TurboOptimizer
             if (result > budget)
                 log.Add(L.T($"! Полигоны: без порчи вида можно ужать только до ~{result} (лимит {budget}). Остальное — убрать вещи, совет появится после проверки.",
                             $"! Polygons: without spoiling the look they can only go down to ~{result} (limit {budget}). Remove items for the rest — advice appears after the check."));
+        }
+
+        static readonly HumanBodyBones[] HandBones =
+        {
+            HumanBodyBones.LeftHand, HumanBodyBones.RightHand,
+            HumanBodyBones.LeftThumbProximal, HumanBodyBones.LeftThumbIntermediate, HumanBodyBones.LeftThumbDistal,
+            HumanBodyBones.LeftIndexProximal, HumanBodyBones.LeftIndexIntermediate, HumanBodyBones.LeftIndexDistal,
+            HumanBodyBones.LeftMiddleProximal, HumanBodyBones.LeftMiddleIntermediate, HumanBodyBones.LeftMiddleDistal,
+            HumanBodyBones.LeftRingProximal, HumanBodyBones.LeftRingIntermediate, HumanBodyBones.LeftRingDistal,
+            HumanBodyBones.LeftLittleProximal, HumanBodyBones.LeftLittleIntermediate, HumanBodyBones.LeftLittleDistal,
+            HumanBodyBones.RightThumbProximal, HumanBodyBones.RightThumbIntermediate, HumanBodyBones.RightThumbDistal,
+            HumanBodyBones.RightIndexProximal, HumanBodyBones.RightIndexIntermediate, HumanBodyBones.RightIndexDistal,
+            HumanBodyBones.RightMiddleProximal, HumanBodyBones.RightMiddleIntermediate, HumanBodyBones.RightMiddleDistal,
+            HumanBodyBones.RightRingProximal, HumanBodyBones.RightRingIntermediate, HumanBodyBones.RightRingDistal,
+            HumanBodyBones.RightLittleProximal, HumanBodyBones.RightLittleIntermediate, HumanBodyBones.RightLittleDistal,
+        };
+
+        // Меш «с руками»: заметная доля вершин (≥ 3%) висит на костях кистей и пальцев.
+        static bool HasHands(Renderer r, Animator anim)
+        {
+            if (!(r is SkinnedMeshRenderer smr) || smr.sharedMesh == null || anim == null || !anim.isHuman) return false;
+            var hand = new HashSet<Transform>(HandBones.Select(b => anim.GetBoneTransform(b)).Where(t => t != null));
+            if (hand.Count == 0) return false;
+            var bones = smr.bones;
+            var perVertex = smr.sharedMesh.GetBonesPerVertex();
+            var weights = smr.sharedMesh.GetAllBoneWeights();
+            int onHands = 0;
+            for (int v = 0, w = 0; v < perVertex.Length; v++)
+            {
+                bool any = false;
+                for (int k = 0; k < perVertex[v]; k++, w++)
+                {
+                    var bw = weights[w];
+                    if (!any && bw.weight > 0.3f && bw.boneIndex < bones.Length && hand.Contains(bones[bw.boneIndex])) any = true;
+                }
+                if (any) onHands++;
+            }
+            return perVertex.Length > 0 && onHands >= perVertex.Length * 0.03f;
+        }
+
+        // Бережное упрощение формы (пальцы): сохраняем кривизну и точнее переносим UV.
+        static void ProtectShape(object entry, Type entryType)
+        {
+            try
+            {
+                var fOpt = entryType.GetField("Options");
+                object opt = fOpt.GetValue(entry);
+                var ot = opt.GetType();
+                ot.GetField("UseBarycentricCoordinateInterpolation")?.SetValue(opt, true);
+                ot.GetField("PreserveSurfaceCurvature")?.SetValue(opt, true);
+                fOpt.SetValue(entry, opt);
+            }
+            catch (Exception) { }
         }
 
         // Защита лица в Meshia: сохраняем края (вырезы глаз, рот, ресницы) у вершин на костях головы, точная интерполяция UV
